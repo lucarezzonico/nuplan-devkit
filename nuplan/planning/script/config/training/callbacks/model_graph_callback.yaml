@@ -1,0 +1,5 @@
+model_graph_callback:
+  _target_: nuplan.planning.training.callbacks.model_graph_callback.ModelGraphAtEpochEnd
+  _convert_: 'all'
+
+  dirpath: ${output_dir}/model_graph

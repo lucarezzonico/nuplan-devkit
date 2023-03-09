@@ -194,6 +194,7 @@ py_library(
         "//nuplan/planning/training/modeling:torch_module_wrapper",
         "//nuplan/planning/training/preprocessing:feature_preprocessor",
         "//nuplan/planning/utils/multithreading:worker_pool",
+        "//nuplan/planning/training/callbacks:model_graph_callback",
         requirement_torch("pytorch-lightning"),
     ],
 )

@@ -61,3 +61,8 @@ py_library(
         "//nuplan/planning/training/data_augmentation:abstract_data_augmentation",
     ],
 )
+
+py_library(
+    name = "model_graph_callback",
+    srcs = ["model_graph_callback.py"],
+)
