@@ -13,6 +13,8 @@ from nuplan.planning.script.builders.training_builder import (
 from nuplan.planning.script.builders.utils.utils_config import scale_cfg_for_distributed_training
 from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
 
+from torch.utils.tensorboard import SummaryWriter
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,6 +60,14 @@ def build_training_engine(cfg: DictConfig, worker: WorkerPool) -> TrainingEngine
 
     # Build trainer
     trainer = build_trainer(cfg)
+    datamodule = build_lightning_datamodule(cfg, worker, torch_module_wrapper)
+    
+    # Add Model Graph To Tensorboard
+    # trainer.logger.experiment.add_graph(model(), datamodule.from_datasets)
+    # trainer.logger.log_graph(model, datamodule) # datamodule should be of type FeaturesType
+    # writer = SummaryWriter(cfg.output_dir)
+    # writer.add_graph(model, datamodule)
+    # writer.close()
 
     engine = TrainingEngine(trainer=trainer, datamodule=datamodule, model=model)
 

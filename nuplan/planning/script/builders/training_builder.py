@@ -116,7 +116,7 @@ def build_trainer(cfg: DictConfig) -> pl.Trainer:
         pl.loggers.TensorBoardLogger(
             save_dir=cfg.group,
             name=cfg.experiment,
-            log_graph=False,
+            log_graph=True,
             version='',
             prefix='',
         ),

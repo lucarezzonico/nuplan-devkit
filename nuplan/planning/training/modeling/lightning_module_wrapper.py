@@ -56,6 +56,8 @@ class LightningModuleWrapper(pl.LightningModule):
         self.lr_scheduler = lr_scheduler
         self.warm_up_lr_scheduler = warm_up_lr_scheduler
         self.objective_aggregate_mode = objective_aggregate_mode
+        
+        # self.example_input_array = torch.zeros(1,2,1024)
 
         # Validate metrics objectives and model
         model_targets = {builder.get_feature_unique_name() for builder in model.get_list_of_computed_target()}
