@@ -13,7 +13,7 @@ from nuplan.planning.script.builders.training_builder import (
 from nuplan.planning.script.builders.utils.utils_config import scale_cfg_for_distributed_training
 from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
 
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
