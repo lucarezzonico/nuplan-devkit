@@ -26,6 +26,8 @@ from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_targe
     EgoTrajectoryTargetBuilder,
 )
 
+from varname import nameof
+
 
 def convert_predictions_to_trajectory(predictions: torch.Tensor) -> torch.Tensor:
     """
@@ -217,6 +219,10 @@ class LaneGCN(TorchModuleWrapper):
             ego_agents_feature = torch.cat([sample_ego_feature, sample_agents_feature], dim=0)
             ego_agents_center = torch.cat([sample_ego_center.unsqueeze(dim=0), sample_agents_center], dim=0)
 
+            print(self.create_dict(nameof(ego_agents_feature)))
+            
+            # print(dict({nameof(ego_agents_feature):ego_agents_feature.shape}))
+            
             lane_features = self.actor2lane_attention(
                 ego_agents_feature, ego_agents_center, lane_features, lane_meta, lane_centers
             )
@@ -232,3 +238,7 @@ class LaneGCN(TorchModuleWrapper):
         predictions = self._mlp(ego_features)
 
         return {"trajectory": Trajectory(data=convert_predictions_to_trajectory(predictions))}
+    
+    def create_dict(self, *args : str) -> dict:
+        print(self)
+        return dict({name:eval(name).shape for name in args})
