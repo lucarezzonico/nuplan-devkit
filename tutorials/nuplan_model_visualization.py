@@ -12,7 +12,7 @@ def visualize(sim_dict: dict) -> str:
     CONFIG_NAME = sim_dict['CONFIG_NAME']
     
     # add save directory
-    SAVE_DIR = sim_dict['SAVE_DIR']
+    SAVE_DIR = sim_dict['SAVE_DIR']+'/training'
     # Name of the experiment
     EXPERIMENT = sim_dict['EXPERIMENT']
     JOB_NAME = sim_dict['JOB_NAME']
@@ -49,9 +49,9 @@ def visualize(sim_dict: dict) -> str:
     ])
     
     # Run the training loop, optionally inspect training artifacts through tensorboard (above cell)
-    engine=main_train(cfg)
-    engine.save_visualize_info('/data1/nuplan/jiale/model_vis')
-    print("done. ")
+    engine = main_train(cfg)
+    engine.save_visualize_info(LOG_DIR)
+    print("model visualisation saved to " + LOG_DIR)
     
     
 if __name__ == '__main__': 
