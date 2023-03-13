@@ -13,6 +13,9 @@ from nuplan.planning.script.builders.training_builder import (
 from nuplan.planning.script.builders.utils.utils_config import scale_cfg_for_distributed_training
 from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
 
+from torch.utils.tensorboard import SummaryWriter
+from torchviz import make_dot
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +33,33 @@ class TrainingEngine:
         """
         return f"<{type(self).__module__}.{type(self).__qualname__} object at {hex(id(self))}>"
 
+    def save_visualize_info(self, path) -> None:
+        """
+        To save the related information to later visualize the model via TensorBoard.
+        """
+        print(self.model)
+
+        # the way trying to visualize it through tensorboard failed. cuz it doesn't
+        # support non-standard input format, which in this case, is [VectorMap, Agents]
+
+        # writer = SummaryWriter(path)
+        # trainloader=self.datamodule.train_dataloader()
+        # dataiter = iter(trainloader)
+        # datainput= next(dataiter)
+        # # datainput:[{'vector_map': VectorMap(coords=[te...ing_dim=2), 'agents': Agents(ego=[tensor([...e+00]]])])}, {'trajectory': Trajectory(data=tens....3670]]]))}, [<nuplan.planning.sce...7e0131a30>]]
+        # writer.add_graph(self.model, datainput[0])
+        # writer.flush()
+        # writer.close()
+
+        # try to visualize through torchviz
+        trainloader=self.datamodule.train_dataloader()
+        dataiter = iter(trainloader)
+        datainput= next(dataiter)
+        # datainput:[{'vector_map': VectorMap(coords=[te...ing_dim=2), 'agents': Agents(ego=[tensor([...e+00]]])])}, {'trajectory': Trajectory(data=tens....3670]]]))}, [<nuplan.planning.sce...7e0131a30>]]
+        graph_obj=make_dot(self.model(datainput[0])['trajectory'].data, params=dict(self.model.named_parameters()), show_attrs=True, show_saved=True)
+        graph_obj.render("./project_records/images/model_vis.dot", view=True)
+        # .pdf as the same name is stored under the same directory. 
+        print("Model graph rendered.")
 
 def build_training_engine(cfg: DictConfig, worker: WorkerPool) -> TrainingEngine:
     """

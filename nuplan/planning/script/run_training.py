@@ -79,6 +79,12 @@ def main(cfg: DictConfig) -> Optional[TrainingEngine]:
         with ProfilerContextManager(cfg.output_dir, cfg.enable_profiling, "caching"):
             cache_data(cfg=cfg, worker=worker)
         return None
+    elif cfg.py_func == "build_only":
+        # Build training engine only
+        with ProfilerContextManager(cfg.output_dir, cfg.enable_profiling, "build_training_engine"):
+            engine = build_training_engine(cfg, worker)
+
+        return engine
     else:
         raise NameError(f'Function {cfg.py_func} does not exist')
 
