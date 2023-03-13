@@ -543,7 +543,7 @@ class LinearWithGroupNorm(nn.Module):
         self.norm = nn.GroupNorm(gcd(num_groups, n_out), n_out)
         self.relu = nn.ReLU(inplace=True)
         self.activation = activation
-        self.example_input_array = torch.zeros([1, n_in], dtype=torch.float16)
+        # self.example_input_array = torch.zeros([1, n_in], dtype=torch.float16)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

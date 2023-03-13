@@ -138,6 +138,14 @@ class LaneGCN(TorchModuleWrapper):
             nn.ReLU(),
             nn.Linear(self.feature_dim, num_output_features),
         )
+        
+        # trainloader=self.datamodule.train_dataloader()
+        # dataiter = iter(trainloader)
+        # datainput= next(dataiter)
+        # self.model(datainput[0])['trajectory'].data
+        # datainput:[{'vector_map': VectorMap(coords=[te...ing_dim=2), 'agents': Agents(ego=[tensor([...e+00]]])])}, {'trajectory': Trajectory(data=tens....3670]]]))}, [<nuplan.planning.sce...7e0131a30>]]
+        # graph_obj=make_dot(self.model(datainput[0])['trajectory'].data, params=dict(self.model.named_parameters()), show_attrs=True, show_saved=True)
+        # graph_obj.render("./project_records/images/model_vis.dot", view=True)
 
     def forward(self, features: FeaturesType) -> TargetsType:
         """

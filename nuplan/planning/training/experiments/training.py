@@ -68,7 +68,14 @@ def build_training_engine(cfg: DictConfig, worker: WorkerPool) -> TrainingEngine
     # writer = SummaryWriter(cfg.output_dir)
     # writer.add_graph(model, datamodule)
     # writer.close()
-
+    
+    # Try 2
+    # datamodule.setup(stage='fit')
+    # trainloader=datamodule.train_dataloader()
+    # dataiter = iter(trainloader)
+    # datainput = next(dataiter)
+    # model.example_input_array = datainput[0]
+    
     engine = TrainingEngine(trainer=trainer, datamodule=datamodule, model=model)
 
     return engine
