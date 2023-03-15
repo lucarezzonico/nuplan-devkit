@@ -55,6 +55,11 @@ class TrainingEngine:
         trainloader=self.datamodule.train_dataloader()
         dataiter = iter(trainloader)
         datainput= next(dataiter)
+        
+        # look at input outpu size
+        ModelInput = datainput[0]
+        ModelOutput = self.model(datainput[0])
+        
         # datainput:[{'vector_map': VectorMap(coords=[te...ing_dim=2), 'agents': Agents(ego=[tensor([...e+00]]])])}, {'trajectory': Trajectory(data=tens....3670]]]))}, [<nuplan.planning.sce...7e0131a30>]]
         graph_obj=make_dot(self.model(datainput[0])['trajectory'].data, params=dict(self.model.named_parameters()), show_attrs=True, show_saved=True)
         graph_obj.render(path + "/model_vis/model_vis.dot", view=True)
