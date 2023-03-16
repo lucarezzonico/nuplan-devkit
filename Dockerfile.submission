@@ -45,9 +45,9 @@ SHELL ["conda", "run", "-n", "nuplan", "/bin/bash", "-c"]
 
 RUN bash -c "pip install -e ."
 
-ENV NUPLAN_MAPS_ROOT=/data/sets/nuplan/maps \
-    NUPLAN_DATA_ROOT=/data/sets/nuplan \
-    NUPLAN_EXP_ROOT=/data/exp/nuplan
+ENV NUPLAN_MAPS_ROOT=/data1/nuplan/dataset/maps \
+    NUPLAN_DATA_ROOT=/data1/nuplan/dataset \
+    NUPLAN_EXP_ROOT=/data1/nuplan/luca/exp
 
 RUN bash -c 'mkdir -p {$NUPLAN_MAPS_ROOT,$NUPLAN_DATA_ROOT,$NUPLAN_EXP_ROOT}'
 RUN apt-get update \
