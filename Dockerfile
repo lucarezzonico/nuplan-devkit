@@ -45,6 +45,9 @@ RUN bash -c "pip install -e ."
 ENV NUPLAN_MAPS_ROOT=/data/sets/nuplan/maps \
     NUPLAN_DATA_ROOT=/data/sets/nuplan \
     NUPLAN_EXP_ROOT=/data/exp/nuplan
+# ENV NUPLAN_MAPS_ROOT=/data1/nuplan/dataset/maps \
+#     NUPLAN_DATA_ROOT=/data1/nuplan/dataset \
+#     NUPLAN_EXP_ROOT=/data1/nuplan/luca/exp
 
 RUN bash -c 'mkdir -p {$NUPLAN_MAPS_ROOT,$NUPLAN_DATA_ROOT,$NUPLAN_EXP_ROOT}'
 
@@ -57,6 +60,7 @@ ARG NUPLAN_DATA_STORE
 ENV NUPLAN_DATA_ROOT $NUPLAN_DATA_ROOT
 ENV NUPLAN_MAPS_ROOT $NUPLAN_MAPS_ROOT
 ENV NUPLAN_DB_FILES  /data/sets/nuplan/nuplan-v1.1/mini
+# ENV NUPLAN_DB_FILES  /data1/nuplan/dataset/nuplan-v1.1/mini
 ENV NUPLAN_MAP_VERSION "nuplan-maps-v1.0"
 ENV NUPLAN_DATA_STORE $NUPLAN_DATA_STORE
 ENV NUPLAN_S3_PROFILE "default"

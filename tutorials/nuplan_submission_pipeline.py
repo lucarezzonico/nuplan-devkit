@@ -11,7 +11,10 @@ def submit(sim_dict: dict) -> None:
     # Location of path with all simulation configs
     CONFIG_PATH = sim_dict['CONFIG_PATH']
     CONFIG_NAME = sim_dict['CONFIG_NAME']
-
+    
+    # add save directory
+    SAVE_DIR = sim_dict['SAVE_DIR']+'/submission'
+    
     # Select the planner and simulation challenge
     PLANNER = sim_dict['PLANNER']  # [simple_planner, ml_planner]
     
@@ -21,6 +24,7 @@ def submit(sim_dict: dict) -> None:
     
     # Compose the configuration
     cfg = hydra.compose(config_name=CONFIG_NAME, overrides=[
+        f'output_dir={str(SAVE_DIR)}',
         f'planner={PLANNER}',
     ])
     
@@ -36,6 +40,9 @@ if __name__ == '__main__':
             # Location of path with all simulation configs
             CONFIG_PATH = '../nuplan/planning/script/config/simulation',
             CONFIG_NAME = 'default_submission_planner',
+            
+            # add save directory
+            SAVE_DIR = os.getenv('NUPLAN_EXP_ROOT'),
 
             # Select the planner and simulation challenge
             PLANNER = 'ml_planner',  # [simple_planner, ml_planner]

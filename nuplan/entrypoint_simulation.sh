@@ -3,7 +3,7 @@
 export PYTHONUNBUFFERED=1
 
 if [[ -z "${NUPLAN_PLANNER}" ]]; then
-  export NUPLAN_PLANNER="[remote_planner]"
+  export NUPLAN_PLANNER="[simple_planner]"
 fi
 
 
