@@ -68,6 +68,7 @@ class NuPlanScenarioBuilder(AbstractScenarioBuilder):
         self._max_workers = max_workers
         self._verbose = verbose
         self._scenario_mapping = scenario_mapping if scenario_mapping is not None else ScenarioMapping({}, None)
+        # print(self._scenario_mapping.mapping.keys())
         self._vehicle_parameters = vehicle_parameters if vehicle_parameters is not None else get_pacifica_parameters()
 
     def __reduce__(self) -> Tuple[Type[NuPlanScenarioBuilder], Tuple[Any, ...]]:
@@ -93,6 +94,10 @@ class NuPlanScenarioBuilder(AbstractScenarioBuilder):
     def get_map_factory(self) -> NuPlanMapFactory:
         """Inherited. See superclass."""
         return NuPlanMapFactory(get_maps_db(self._map_root, self._map_version))
+    
+    def get_scenario_names(self) -> dict:
+        """Inherited. See superclass."""
+        return self._scenario_mapping.mapping.keys()
 
     def _aggregate_dicts(self, dicts: List[ScenarioDict]) -> ScenarioDict:
         """
