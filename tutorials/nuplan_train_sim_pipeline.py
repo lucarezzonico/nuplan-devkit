@@ -18,6 +18,7 @@ def train(sim_dict: dict) -> str:
     EXPERIMENT = sim_dict['EXPERIMENT']
     MODEL = sim_dict['MODEL']
     TRAINING_MODEL = sim_dict['TRAINING_MODEL']
+    LR_SCHEDULER = sim_dict['LR_SCHEDULER']
     
     # Training params
     PY_FUNC = sim_dict['PY_FUNC']
@@ -41,6 +42,7 @@ def train(sim_dict: dict) -> str:
         f'job_name={MODEL}',
         f'py_func={PY_FUNC}',
         f'+training={TRAINING_MODEL}',  # raster model that consumes ego, agents and map raster layers and regresses the ego's trajectory
+        f'lr_scheduler={LR_SCHEDULER}',
         f'scenario_builder={SCENARIO_BUILDER}',  # use nuplan mini database  # ['nuplan','nuplan_challenge','nuplan_mini']
         f'scenario_filter.limit_total_scenarios={SCENARIO_SELECTION}',  # Choose 500 scenarios to train with
         'lightning.trainer.params.accelerator=ddp_spawn',  # ddp is not allowed in interactive environment, using ddp_spawn instead - this can bottleneck the data pipeline, it is recommended to run training outside the notebook
@@ -235,6 +237,7 @@ if __name__ == '__main__':
             EXPERIMENT = 'vector_experiment',
             MODEL = 'vector_model',
             TRAINING_MODEL = 'training_vector_model',
+            LR_SCHEDULER = 'multistep_lr',
             
             # Training params
             PY_FUNC = 'train', # ['train','test','cache']
@@ -263,4 +266,4 @@ if __name__ == '__main__':
         train(train_sim_dict)
         simulation_folder = simulate(train_sim_dict)
         # simulation_folders.append(simulation_folder)
-        open_nuboard(train_sim_dict, simulation_folder)
+        # open_nuboard(train_sim_dict, simulation_folder)
