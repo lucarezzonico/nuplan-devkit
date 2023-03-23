@@ -155,3 +155,49 @@ class FinalHeadingError(AbstractTrainingMetric):
 
         errors = torch.abs(predicted_trajectory.terminal_heading - targets_trajectory.terminal_heading)
         return torch.atan2(torch.sin(errors), torch.cos(errors)).mean()
+
+
+class MissRateWithinBound(AbstractTrainingMetric):
+    """
+    Metric representing .
+    """
+
+    def __init__(self, name: str = 'miss_rate_within_bound') -> None:
+        """
+        Initializes the class.
+
+        :param name: the name of the metric (used in logger)
+        """
+        self._name = name
+
+    def name(self) -> str:
+        """
+        Name of the metric
+        """
+        return self._name
+
+    def get_list_of_required_target_types(self) -> List[str]:
+        """Implemented. See interface."""
+        return ["trajectory"]
+
+    def compute(self, predictions: TargetsType, targets: TargetsType) -> torch.Tensor:
+        """
+        Computes the metric given the ground truth targets and the model's predictions.
+
+        :param predictions: model's predictions
+        :param targets: ground truth targets from the dataset
+        :return: metric scalar tensor
+        """
+        predicted_trajectory: Trajectory = predictions["trajectory"]
+        targets_trajectory: Trajectory = targets["trajectory"]
+
+        max_displacement_threshold = 0.5
+        
+        predictions_displacement = torch.norm(predicted_trajectory.xy - targets_trajectory.xy, dim=-1)
+
+        nb_missed_predictions = torch.sum(predictions_displacement > max_displacement_threshold)
+        nb_predictions = torch.numel(predictions_displacement)
+        
+        miss_rate = nb_missed_predictions/nb_predictions
+        
+        return miss_rate

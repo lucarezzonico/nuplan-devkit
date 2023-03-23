@@ -189,3 +189,52 @@ class AgentsFinalHeadingError(AbstractTrainingMetric):
             errors.append(error_wrapped)
 
         return torch.mean(torch.tensor(errors))
+
+
+class AgentsMissRateWithinBound(AbstractTrainingMetric):
+    """
+    Metric representing the displacement L2 error averaged from all poses of all agents' trajectory.
+    """
+
+    def __init__(self, name: str = 'agents_miss_rate_within_bound') -> None:
+        """
+        Initializes the class.
+
+        :param name: the name of the metric (used in logger)
+        """
+        self._name = name
+
+    def name(self) -> str:
+        """
+        Name of the metric
+        """
+        return self._name
+
+    def get_list_of_required_target_types(self) -> List[str]:
+        """Implemented. See interface."""
+        return ["agents_trajectory"]
+
+    def compute(self, predictions: TargetsType, targets: TargetsType) -> torch.Tensor:
+        """
+        Computes the metric given the ground truth targets and the model's predictions.
+
+        :param predictions: model's predictions
+        :param targets: ground truth targets from the dataset
+        :return: metric scalar tensor
+        """
+        predicted_agents: AgentsTrajectories = predictions["agents_trajectory"]
+        target_agents: AgentsTrajectories = targets["agents_trajectory"]
+        batch_size = predicted_agents.batch_size
+        
+        max_displacement_threshold = 0.5
+        
+        error = torch.mean(
+            torch.tensor(
+                [
+                    torch.sum(torch.norm(predicted_agents.xy[sample_idx] - target_agents.xy[sample_idx], dim=-1) > max_displacement_threshold) / torch.numel(torch.norm(predicted_agents.xy[sample_idx] - target_agents.xy[sample_idx], dim=-1))
+                    for sample_idx in range(batch_size)
+                ]
+            )
+        )
+
+        return error

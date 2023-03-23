@@ -17,3 +17,4 @@ defaults:
       - avg_heading_error
       - final_displacement_error
       - final_heading_error
+      - miss_rate_within_bound

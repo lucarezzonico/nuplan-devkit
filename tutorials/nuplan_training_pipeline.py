@@ -116,7 +116,7 @@ if __name__ == '__main__':
             PY_FUNC = 'train', # ['train','test','cache']
             SCENARIO_BUILDER = 'nuplan_mini', # ['nuplan','nuplan_challenge','nuplan_mini']
             SCENARIO_SELECTION = 500,
-            MAX_EPOCHS = 2,
+            MAX_EPOCHS = 15,
             BATCH_SIZE = 8,
             
             # add save directory
