@@ -156,6 +156,7 @@ class Tasks():
         if names is None:
             # Load all .yaml files in tutorials/config
             file_list = glob.glob("tutorials/config/*.yaml")
+            # file_list = os.listdir("tutorials/config")
         else:
             # Load given .yaml files from tutorials/config
             file_list = []
@@ -168,20 +169,19 @@ class Tasks():
         print("Configs to run tasks: ", file_list)
         cfgs = []           
         for filename in file_list:
-            # if filename.endswith(".yaml"): cfgs.append(yaml.safe_load(open(filename)))
+            if filename.endswith(".yaml"): cfgs.append(yaml.safe_load(open(filename)))
             
-            # Initialize configuration management system
-            hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
-            hydra.initialize(config_path="config")
-            
-            # Compose the configuration
-            cfg = hydra.compose(config_name="default_config")
-            cfgs.append(cfg)
-
+            # # Initialize configuration management system
+            # hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
+            # hydra.initialize(config_path="config")
+            # filename_without_ext = os.path.splitext(filename)[0]
+            # # Compose the configuration
+            # cfg = hydra.compose(config_name=filename_without_ext)
+            # cfgs.append(cfg)
         if len(cfgs) == 0: print("No config to run tasks!")
         return cfgs
     
-    @hydra.main(config_path="config", config_name="default_config")
+    # @hydra.main(config_path="config", config_name="default_config")
     def main(self, cfgs: List[DictConfig]):
         simulation_folders = []
         OPEN_NUBOARD = False
