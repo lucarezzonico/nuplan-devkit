@@ -7,11 +7,11 @@ config_name: default # default = default_training & default_simulation
 # save_dir = $NUPLAN_EXP_ROOT
 
 # Name of the experiment
-experiment: vector_experiment
-model: vector_model
-training_model: training_vector_model
+experiment: autobotego_experiment
+model: autobotego_model
+training_model: training_autobotego_model
 lr_scheduler: multistep_lr
-# - override /model: vector_modelmultistep_lr.milestones: [5, 10]
+# - override /model: vector_model multistep_lr.milestones: [5, 10]  # would need to load cfg file with hydra to override
 
 # Training params
 py_func: train # [train, test, cache]
