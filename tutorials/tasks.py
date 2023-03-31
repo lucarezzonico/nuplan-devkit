@@ -185,8 +185,6 @@ class Tasks():
     def main(self, cfgs: List[DictConfig]):
         simulation_folders = []
         OPEN_NUBOARD = False
-        
-        cfg = DictConfig(None)
         for cfg in cfgs:
             cfg = DictConfig(cfg) # convert dict to DictConfig
             if "train" in cfg.tasks:
@@ -196,8 +194,8 @@ class Tasks():
                 if "open_nuboard" in cfg.tasks:
                     OPEN_NUBOARD = True
                     simulation_folders.append(simulation_folder)
-
-        if OPEN_NUBOARD: task.open_nuboard(cfg, simulation_folders)
+            
+        if OPEN_NUBOARD: task.open_nuboard(cfgs[0], simulation_folders)
 
 
 if __name__ == '__main__':
