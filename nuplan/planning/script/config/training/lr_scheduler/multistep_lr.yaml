@@ -1,5 +1,5 @@
 _target_: torch.optim.lr_scheduler.MultiStepLR
 _convert_: all
 
-milestones: [32]  # decays the learning rate of each parameter group by gamma once the number of epochs equals one of the milestones
-gamma: 0.1  # multiplicative factor of learning rate decay
+milestones: [4, 8, 12, 16, 20]  # decays the learning rate of each parameter group by gamma once the number of epochs equals one of the milestones
+gamma: 0.6  # multiplicative factor of learning rate decay
