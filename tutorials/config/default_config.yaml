@@ -1,5 +1,5 @@
 
-tasks: [train, simulate, open_nuboard] # [train, simulate, open_nuboard]
+tasks: [simulate, open_nuboard] # [train, simulate, open_nuboard]
 
 ## TRAINING
 config_path: ../nuplan/planning/script/config # Location of path with all training configs
@@ -15,10 +15,10 @@ lr_scheduler: multistep_lr
 
 # Training params
 py_func: train # [train, test, cache]
-scenario_builder: nuplan_mini # [nuplan, nuplan_challenge, nuplan_mini]
-limit_total_scenarios: 500
-max_epochs: 2
-batch_size: 8
+scenario_builder: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
+limit_total_scenarios: 16000
+max_epochs: 24
+batch_size: 12
 lightning_accelerator: ddp_spawn
 num_workers: 8
 
