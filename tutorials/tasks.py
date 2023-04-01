@@ -80,6 +80,8 @@ class Tasks():
             cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=[
                 f'experiment_name={cfg.experiment}',
                 f'group={cfg.save_dir_simulation}',
+                f'ego_controller={cfg.ego_controller}',
+                f'observation={cfg.observation}',
                 f'planner={cfg.planner}',
                 f'+simulation={cfg.challenge}',
                 f'scenario_builder={cfg.scenario_builder}',
@@ -119,6 +121,8 @@ class Tasks():
             cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=[
                 f'experiment_name={cfg.experiment}',
                 f'group={cfg.save_dir_simulation}',
+                f'ego_controller={cfg.ego_controller}',
+                f'observation={cfg.observation}',
                 f'planner={cfg.planner}',
                 f'model={cfg.model}',
                 'planner.ml_planner.model_config=${model}',  # hydra notation to select model config
