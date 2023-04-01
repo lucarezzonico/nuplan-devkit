@@ -23,10 +23,12 @@ lightning_accelerator: ddp_spawn
 num_workers: 8
 
 ## SIMULATION
+ego_controller: perfect_tracking_controller
+observation: box_observation
 # Select the planner and simulation challenge
 planner: ml_planner  # [simple_planner, ml_planner]
 challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
-scenarios: all_scenarios # initially select all scenarios in the database
+scenarios: all_scenarios # [all_scenarios, one_continuous_log, nuplan_challenge_scenarios] # initially select all scenarios in the database
 # scenario_types: [near_multiple_vehicles,
 #                  on_pickup_dropoff,
 #                  starting_unprotected_cross_turn,
