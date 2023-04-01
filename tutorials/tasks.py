@@ -9,6 +9,8 @@ from nuplan.planning.script.run_nuboard import main as main_nuboard
 import yaml
 import glob
 from typing import List, Optional, cast
+import shutil
+from PIL import Image
 
 
 class Tasks():
@@ -33,6 +35,9 @@ class Tasks():
         hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
         hydra.initialize(config_path=cfg.config_path_training)
         
+        # remove previous scenario_visualization folder
+        shutil.rmtree(f'{cfg.save_dir_training}/scenario_visualization', ignore_errors=True)
+        
         # Compose the configuration
         cfg = hydra.compose(config_name=cfg.config_name_training, overrides=[
             f'group={str(cfg.save_dir_training)}',
@@ -53,6 +58,8 @@ class Tasks():
         # Run the training loop, optionally inspect training artifacts through tensorboard (above cell)
         main_train(cfg)
         
+        self.scenario_visualzation()
+
         
     def simulate(self, cfg: DictConfig) -> str:
         # Location of path with all simulation configs
@@ -149,7 +156,28 @@ class Tasks():
         
         # Run nuBoard
         main_nuboard(cfg)
-    
+        
+
+    def scenario_visualzation(self):
+        # Create the frames
+        frames = []
+        exp_root = os.getenv('NUPLAN_EXP_ROOT')
+        gif_root = f'{exp_root}/training/scenario_visualization'
+        
+        # Get the list of all files and folders in the specified directory
+        dir_contents = os.listdir(gif_root)
+        # Filter out only the folders from the list
+        dirs = sorted([f for f in dir_contents if os.path.isdir(os.path.join(gif_root, f))])
+        
+        for dir in dirs:
+            time_sorted_images = sorted(glob.glob(f'{gif_root}/{dir}/*.png'), key=os.path.getmtime)
+            frames = [Image.open(i) for i in time_sorted_images]
+            # Save into a GIF file that loops forever
+            rest_images = [frames[0]] * 3 + frames[1:]
+            try:
+                frames[0].save(f'{gif_root}/{dir}.gif', format='GIF', append_images=rest_images, save_all=True, duration=500, loop=0)
+            except:
+                print(f'Could not create {dir}.gif :(')
 
     def load_cfgs(self, names: Optional[List[str]]=None) -> List[DictConfig]:
         
