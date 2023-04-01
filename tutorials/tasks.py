@@ -190,6 +190,7 @@ class Tasks():
             file_list = glob.glob("tutorials/config/*.yaml")
             # file_list = os.listdir("tutorials/config")
         else:
+            if isinstance(names, str): names = [names]
             # Load given .yaml files from tutorials/config
             file_list = []
             for name in names:
