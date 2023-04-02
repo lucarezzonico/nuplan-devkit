@@ -1,0 +1,10 @@
+body {
+    margin: 100;
+    offset-distance: 0;
+    font-family: sans-serif;
+    background-color: lightblue;
+}
+
+h1 {font-size: 30px;}
+h2 {font-size: 20px;}
+p {font-size: 12px;}

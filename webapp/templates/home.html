@@ -1,0 +1,29 @@
+
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+<h1>NuManager</h1>
+<form method="POST" action="/">
+    <h2>Tasks</h2>
+    <input type="checkbox" id="train" name="tasks" value="train" {{ 'checked' if train else '' }}>
+    <label for="training"> Train</label><br>
+    <input type="checkbox" id="simulate" name="tasks" value="simulate" {{ 'checked' if simulate else '' }}>
+    <label for="simulation"> Simulate</label><br>
+    <input type="checkbox" id="open_nuboard" name="tasks" value="open_nuboard" {{ 'checked' if open_nuboard else '' }}>
+    <label for="open_nuboard"> Open Nuboard</label>
+    <br><br>
+    <h2>Model</h2>
+    <select name="model" id="model">
+        <option value="raster_model" {{ 'selected' if model == 'raster_model' else '' }}>raster_model</option>
+        <option value="vector_model" {{ 'selected' if model == 'vector_model' else '' }}>vector_model</option>
+    </select>
+    <br><br>
+    <input type="submit" value="Run"></input>
+    <!-- <button type="submit" onclick="alert('Run')">Run</button> -->
+</form>
+{% endblock %}
