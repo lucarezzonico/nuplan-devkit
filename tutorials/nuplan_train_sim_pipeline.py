@@ -241,10 +241,10 @@ if __name__ == '__main__':
             
             # Training params
             PY_FUNC = 'train', # ['train','test','cache']
-            SCENARIO_BUILDER = 'nuplan_mini', # ['nuplan','nuplan_challenge','nuplan_mini']
-            SCENARIO_SELECTION = 500,
-            MAX_EPOCHS = 50,
-            BATCH_SIZE = 16,
+            SCENARIO_BUILDER = 'nuplan', # ['nuplan','nuplan_challenge','nuplan_mini']
+            SCENARIO_SELECTION = 32000,
+            MAX_EPOCHS = 36,
+            BATCH_SIZE = 8,
             
             # add save directory
             SAVE_DIR = os.getenv('NUPLAN_EXP_ROOT'),
@@ -266,4 +266,4 @@ if __name__ == '__main__':
         train(train_sim_dict)
         simulation_folder = simulate(train_sim_dict)
         simulation_folders.append(simulation_folder)
-    open_nuboard(train_sim_dict, simulation_folder)
+    # open_nuboard(train_sim_dict, simulation_folder)

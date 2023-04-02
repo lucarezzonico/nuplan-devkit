@@ -14,6 +14,8 @@ from nuplan.planning.training.callbacks.utils.visualization_utils import (
 from nuplan.planning.training.modeling.types import FeaturesType, TargetsType, move_features_type_to_device
 from nuplan.planning.training.preprocessing.feature_collate import FeatureCollate
 
+from torchvision.utils import save_image
+import os
 
 class VisualizationCallback(pl.Callback):
     """
@@ -125,6 +127,8 @@ class VisualizationCallback(pl.Callback):
             return
 
         tag = f'{prefix}_visualization_{batch_idx}'
+        
+        self._save_images(torch.from_numpy(image_batch), tag, training_step)
 
         for logger in loggers:
             if isinstance(logger, torch.utils.tensorboard.writer.SummaryWriter):
@@ -134,6 +138,13 @@ class VisualizationCallback(pl.Callback):
                     global_step=training_step,
                     dataformats='NHWC',
                 )
+                
+    def _save_images(self, image_batch, tag, training_step):
+        image_batch = torch.permute(image_batch, (0, 3, 1, 2))
+        exp_root = os.getenv('NUPLAN_EXP_ROOT')
+        path = f'{exp_root}/training/scenario_visualization/{tag}'
+        if not os.path.exists(path): os.makedirs(path, exist_ok=True)
+        save_image(image_batch.float()/255.0, f'{path}/step_{training_step}.png')
 
     def _get_images_from_raster_features(
         self, features: FeaturesType, targets: TargetsType, predictions: TargetsType
