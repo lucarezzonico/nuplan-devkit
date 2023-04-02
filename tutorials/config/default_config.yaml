@@ -1,5 +1,5 @@
 
-tasks: [train] # [train, simulate, open_nuboard]
+tasks: [simulate] # [train, simulate, open_nuboard]
 
 ## TRAINING
 config_path: ../nuplan/planning/script/config # Location of path with all training configs
@@ -23,8 +23,8 @@ lightning_accelerator: ddp_spawn
 num_workers: 8
 
 ## SIMULATION
-ego_controller: perfect_tracking_controller
-observation: box_observation
+# ego_controller: perfect_tracking_controller   # already set with challenge
+# observation: box_observation                  # already set with challenge
 # Select the planner and simulation challenge
 planner: ml_planner  # [simple_planner, ml_planner]
 challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
