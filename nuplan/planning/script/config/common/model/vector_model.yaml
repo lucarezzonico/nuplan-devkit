@@ -4,7 +4,7 @@ _convert_: 'all'
 # Model setup
 map_net_scales: 4
 num_res_blocks: 3
-num_attention_layers: 4
+num_attention_layers: 8
 a2a_dist_threshold: 20.0
 l2a_dist_threshold: 30.0
 num_output_features: 48
