@@ -48,6 +48,7 @@ class Tasks():
             f'lr_scheduler={cfg.lr_scheduler}',
             f'scenario_builder={cfg.scenario_builder}',  # use nuplan mini database  # ['nuplan','nuplan_challenge','nuplan_mini']
             f'scenario_filter.limit_total_scenarios={cfg.limit_total_scenarios}',  # Choose 500 scenarios to train with
+            f'scenario_filter.scenario_types={cfg.scenario_types}',
             f'lightning.trainer.params.accelerator={cfg.lightning_accelerator}',  # ddp is not allowed in interactive environment, using ddp_spawn instead - this can bottleneck the data pipeline, it is recommended to run training outside the notebook
             f'lightning.trainer.params.max_epochs={cfg.max_epochs}',
             f'data_loader.params.batch_size={cfg.batch_size}',
@@ -166,6 +167,7 @@ class Tasks():
         frames = []
         exp_root = os.getenv('NUPLAN_EXP_ROOT')
         gif_root = f'{exp_root}/training/scenario_visualization'
+        if not os.path.exists(gif_root): os.makedirs(gif_root, exist_ok=True)
         
         # Get the list of all files and folders in the specified directory
         dir_contents = os.listdir(gif_root)
