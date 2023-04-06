@@ -1,15 +1,47 @@
+hydra:
+  # run:
+  #   dir: ${output_dir}
+  # output_subdir: ${output_dir}/code/hydra           # Store hydra's config breakdown here for debugging
+  searchpath:                                       # Only <exp_dir> in these paths are discoverable
+    - pkg://nuplan.planning.script.config.training
+    - pkg://nuplan.planning.script.config.simulation
+    - pkg://nuplan.planning.script.config.nuboard
+    
+    - pkg://nuplan.planning.script.config.common
+    - pkg://nuplan.planning.script.experiments
+
+defaults:
+  - default_training
+  # - default_simulation
+  # - default_nuboard
+
+  # - override /+training: training_vector_model
+
+  - override /objective:
+    - imitation_objective
+  - override /splitter: nuplan
+  - override /training_metric:
+      - avg_displacement_error
+      - avg_heading_error
+      - final_displacement_error
+      - final_heading_error
+
 
 tasks: [train] # [train, simulate, open_nuboard]
 
 ## TRAINING
-config_path: ../nuplan/planning/script/config # Location of path with all training configs
-config_name: default # default = default_training & default_simulation
+config_path_training: ../nuplan/planning/script/config/training # Location of path with all training configs
+config_name_training: default_training # default = default_training & default_simulation
+config_path_simulation: ../nuplan/planning/script/config/simulation # Location of path with all training configs
+config_name_simulation: default_simulation # default = default_training & default_simulation
+config_path_nuboard: ../nuplan/planning/script/config/nuboard # Location of path with all training configs
+config_name_nuboard: default_nuboard # default = default_training & default_simulation
 # save_dir = $NUPLAN_EXP_ROOT
 
 # Name of the experiment
-experiment: autobotego_experiment
-model: autobotego_model
-training_model: training_autobotego_model
+experiment: vector_experiment
+model: vector_model
+training_model: training_vector_model
 lr_scheduler: multistep_lr
 # - override /model: vector_model multistep_lr.milestones: [5, 10]  # would need to load cfg file with hydra to override
 
@@ -17,7 +49,7 @@ lr_scheduler: multistep_lr
 py_func: train # [train, test, cache]
 scenario_builder: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
 limit_total_scenarios: 500
-max_epochs: 12
+max_epochs: 2
 batch_size: 8
 lightning_accelerator: ddp_spawn
 num_workers: 8
