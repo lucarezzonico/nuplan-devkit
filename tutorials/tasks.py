@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import hydra
-from omegaconf import DictConfig
+from omegaconf import OmegaConf, DictConfig
 import tempfile
 from nuplan.planning.script.run_training import main as main_train
 from nuplan.planning.script.run_simulation import main as main_simulation
@@ -46,6 +46,7 @@ class Tasks():
             f'py_func={cfg.py_func}',
             f'+training={cfg.training_model}',  # raster model that consumes ego, agents and map raster layers and regresses the ego's trajectory
             f'lr_scheduler={cfg.lr_scheduler}',
+            # f'optimizer.lr={5e-4}',
             f'scenario_builder={cfg.scenario_builder}',  # use nuplan mini database  # ['nuplan','nuplan_challenge','nuplan_mini']
             f'scenario_filter.limit_total_scenarios={cfg.limit_total_scenarios}',  # Choose 500 scenarios to train with
             f'scenario_filter.scenario_types={cfg.scenario_types}',
