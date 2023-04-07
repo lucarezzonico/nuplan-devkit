@@ -3,13 +3,13 @@ tasks: [train] # [train, simulate, open_nuboard]
 
 ## TRAINING
 config_path: ../nuplan/planning/script/config # Location of path with all training configs
-config_name: default # default = default_training & default_simulation
+config_name: vector # default = default_training & default_simulation
 # save_dir = $NUPLAN_EXP_ROOT
 
 # Name of the experiment
-experiment: autobotego_experiment
-model: autobotego_model
-training_model: training_autobotego_model
+experiment: vector_experiment
+model: vector_model
+training_model: training_vector_model
 lr_scheduler: multistep_lr
 # - override /model: vector_model multistep_lr.milestones: [5, 10]  # would need to load cfg file with hydra to override
 
