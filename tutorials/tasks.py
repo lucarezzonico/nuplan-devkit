@@ -108,12 +108,20 @@ class Tasks():
             # last_experiment = sorted(os.listdir(LOG_DIR))[-1]
             
             i = -1
-            train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
-            while not (train_experiment_dir / 'checkpoints').exists():
+            ## GET LAST MODEL
+            # train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
+            # while not (train_experiment_dir / 'checkpoints').exists():
+            #     i -= 1
+            #     train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
+            #     if i == -10: break
+            # checkpoint = sorted((train_experiment_dir / 'checkpoints').iterdir())[-1]  # get last checkpoint
+            
+            ## GET BEST MODEL
+            while not (train_experiment_dir / 'best_model').exists():
                 i -= 1
                 train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
                 if i == -10: break
-            checkpoint = sorted((train_experiment_dir / 'checkpoints').iterdir())[-1]  # get last checkpoint
+            checkpoint = sorted((train_experiment_dir / 'best_model').iterdir())[-1]
             
             cfg.model_path = str(checkpoint).replace("=", "\=")
 
