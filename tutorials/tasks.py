@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import hydra
-from omegaconf import DictConfig
+from omegaconf import OmegaConf, DictConfig
 import tempfile
 from nuplan.planning.script.run_training import main as main_train
 from nuplan.planning.script.run_simulation import main as main_simulation
@@ -25,16 +25,19 @@ CONFIG_NAME = 'default_config'
 def train(cfg: DictConfig) -> None:
     # add save directory
     save_dir_training = os.getenv('NUPLAN_EXP_ROOT') + '/training'
+    cfg.output_dir = save_dir_training
     
     log_dir = str(Path(save_dir_training) / cfg.experiment / cfg.model)
     print('__LOG__' + log_dir)
     
-    # Initialize configuration management system
-    hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
-    hydra.initialize(config_path=cfg.config_path_training)
+    # # Initialize configuration management system
+    # hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
+    # hydra.initialize(config_path=cfg.config_path_training)
     
     # remove previous scenario_visualization folder
     shutil.rmtree(f'{save_dir_training}/scenario_visualization', ignore_errors=True)
+    
+    print(cfg.output_dir)
     
     # Compose the configuration
     # cfg = hydra.compose(config_name=cfg.config_name_training, overrides=[
@@ -64,11 +67,13 @@ def simulate(cfg: DictConfig) -> str:
     # add save directory
     save_dir_simulation = os.getenv('NUPLAN_EXP_ROOT')+'/simulation'
     
+    cfg.output_dir = save_dir_simulation
+    
     simulation_folder = ''
     
-    # Initialize configuration management system
-    hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
-    hydra.initialize(config_path=cfg.config_path_simulation)
+    # # Initialize configuration management system
+    # hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
+    # hydra.initialize(config_path=cfg.config_path_simulation)
     
     if cfg.planner == 'simple_planner':
         # Compose the configuration

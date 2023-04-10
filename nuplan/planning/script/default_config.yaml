@@ -1,7 +1,7 @@
 hydra:
-  # run:
-  #   dir: ${output_dir}
-  # output_subdir: ${output_dir}/code/hydra           # Store hydra's config breakdown here for debugging
+  run:
+    dir: ${output_dir}
+  output_subdir: ${output_dir}/code/hydra           # Store hydra's config breakdown here for debugging
   searchpath:                                       # Only <exp_dir> in these paths are discoverable
     - pkg://nuplan.planning.script.config.training
     - pkg://nuplan.planning.script.config.simulation
@@ -12,8 +12,8 @@ hydra:
 
 defaults:
   - default_training
-  # - default_simulation
-  # - default_nuboard
+  - default_simulation
+  - default_nuboard
 
   # - override /+training: training_vector_model
 

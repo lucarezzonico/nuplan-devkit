@@ -1,15 +1,15 @@
-hydra:
-  run:
-    dir: ${output_dir}
-  output_subdir: ${output_dir}/code/hydra                       # Store hydra's config breakdown here for debugging
-  searchpath:                                                   # Only <exp_dir> in these paths are discoverable
-    - pkg://nuplan.planning.script.config.common
-    - pkg://nuplan.planning.script.experiments                  # Put experiments configs in script/experiments/<exp_dir>
+# hydra:
+#   run:
+#     dir: ${output_dir}
+#   output_subdir: ${output_dir}/code/hydra                       # Store hydra's config breakdown here for debugging
+#   searchpath:                                                   # Only <exp_dir> in these paths are discoverable
+#     - pkg://nuplan.planning.script.config.common
+#     - pkg://nuplan.planning.script.experiments                  # Put experiments configs in script/experiments/<exp_dir>
 
 defaults:
   # Add ungrouped items
-  - default_experiment
-  - default_common
+  # - default_experiment
+  # - default_common
   - default_submission
 
   - simulation_metric:
@@ -21,7 +21,7 @@ defaults:
       - metric_file_callback
       - metric_aggregator_callback
       - metric_summary_callback
-  - splitter: nuplan
+  # - splitter: nuplan
 
   # Hyperparameters need to be specified
   - observation: null
