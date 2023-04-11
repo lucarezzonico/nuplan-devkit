@@ -20,15 +20,7 @@ class Tasks():
         self.selected_scenario_types = '[near_multiple_vehicles, on_pickup_dropoff, starting_unprotected_cross_turn, high_magnitude_jerk]' # select scenario types
     
     def train(self, cfg: DictConfig) -> None:
-        # Location of path with all simulation configs
-        cfg.config_path_training = cfg.config_path + '/training'
-        cfg.config_name_training = cfg.config_name + '_training'
-        
-        # add save directory
-        cfg.save_dir_training = os.getenv('NUPLAN_EXP_ROOT') + '/training'
-        
-        cfg.log_dir = str(Path(cfg.save_dir_training) / cfg.experiment / cfg.model)
-        print('__LOG__' + cfg.log_dir)
+        print('log_dir = ' + cfg.log_dir)
         
         # Initialize configuration management system
         hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
@@ -37,24 +29,11 @@ class Tasks():
         # remove previous scenario_visualization folder
         shutil.rmtree(f'{cfg.save_dir_training}/scenario_visualization', ignore_errors=True)
         
+        override_list = [f'{k}={v}' for k, v in cfg.training_params.items()]
+        override_list.extend([f'{k}={v}' for k, v in cfg.training_options.items()])
+
         # Compose the configuration
-        cfg = hydra.compose(config_name=cfg.config_name_training, overrides=[
-            f'group={str(cfg.save_dir_training)}',
-            f'cache.cache_path={str(cfg.save_dir_training)}/cache',
-            f'experiment_name={cfg.experiment}',
-            f'job_name={cfg.model}',
-            f'py_func={cfg.py_func}',
-            f'+training={cfg.training_model}',  # raster model that consumes ego, agents and map raster layers and regresses the ego's trajectory
-            f'lr_scheduler={cfg.lr_scheduler}',
-            # f'optimizer.lr={5e-4}',
-            f'scenario_builder={cfg.scenario_builder}',  # use nuplan mini database  # ['nuplan','nuplan_challenge','nuplan_mini']
-            f'scenario_filter.limit_total_scenarios={cfg.limit_total_scenarios}',  # Choose 500 scenarios to train with
-            f'scenario_filter.scenario_types={cfg.scenario_types}',
-            f'lightning.trainer.params.accelerator={cfg.lightning_accelerator}',  # ddp is not allowed in interactive environment, using ddp_spawn instead - this can bottleneck the data pipeline, it is recommended to run training outside the notebook
-            f'lightning.trainer.params.max_epochs={cfg.max_epochs}',
-            f'data_loader.params.batch_size={cfg.batch_size}',
-            f'data_loader.params.num_workers={cfg.num_workers}',
-        ])
+        cfg = hydra.compose(config_name=cfg.config_name_training, overrides=override_list)
         
         # Run the training loop, optionally inspect training artifacts through tensorboard (above cell)
         main_train(cfg)
@@ -63,33 +42,18 @@ class Tasks():
 
         
     def simulate(self, cfg: DictConfig) -> str:
-        # Location of path with all simulation configs
-        cfg.config_path_simulation = cfg.config_path + '/simulation'
-        cfg.config_name_simulation = cfg.config_name + '_simulation'
-        
-        # add save directory
-        cfg.save_dir_simulation = os.getenv('NUPLAN_EXP_ROOT')+'/simulation'
-        
         simulation_folder = ''
         
         # Initialize configuration management system
         hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
         hydra.initialize(config_path=cfg.config_path_simulation)
         
-        if cfg.planner == 'simple_planner':
+        override_list = [f'{k}={v}' for k, v in cfg.simulation_params.items()]
+        override_list.extend([f'{k}={v}' for k, v in cfg.simulation_options.items()])
+
+        if cfg.planner == 'simple_planner':            
             # Compose the configuration
-            cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=[
-                f'experiment_name={cfg.experiment}',
-                f'group={cfg.save_dir_simulation}',
-                # f'ego_controller={cfg.ego_controller}',
-                # f'observation={cfg.observation}',
-                f'planner={cfg.planner}',
-                f'+simulation={cfg.challenge}',
-                f'scenario_builder={cfg.scenario_builder}',
-                f'scenario_filter={cfg.scenarios}',
-                f'scenario_filter.scenario_types={cfg.scenario_types}',
-                f'scenario_filter.num_scenarios_per_type={cfg.scenarios_per_type}',
-            ])
+            cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=override_list)
             
             # Run the simulation loop
             main_simulation(cfg)
@@ -98,50 +62,23 @@ class Tasks():
             simulation_folder = cfg.output_dir
             
         elif cfg.planner == 'ml_planner':
-            
-            cfg.model = cfg.model
-            
-            cfg.log_dir = str(Path(os.getenv('NUPLAN_EXP_ROOT')) / 'training' / cfg.experiment / cfg.model)
-            print(cfg.log_dir)
-
-            # Get the checkpoint of the trained model
-            # last_experiment = sorted(os.listdir(LOG_DIR))[-1]
-            
             i = -1
-            ## GET LAST MODEL
-            # train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
-            # while not (train_experiment_dir / 'checkpoints').exists():
-            #     i -= 1
-            #     train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
-            #     if i == -10: break
-            # checkpoint = sorted((train_experiment_dir / 'checkpoints').iterdir())[-1]  # get last checkpoint
-            
-            ## GET BEST MODEL
-            while not (train_experiment_dir / 'best_model').exists():
+            search_folder_name = 'best_model'  # or 'checkpoints'
+            # get best model
+            train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
+            while not (train_experiment_dir / search_folder_name).exists():
                 i -= 1
                 train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
                 if i == -10: break
-            checkpoint = sorted((train_experiment_dir / 'best_model').iterdir())[-1]
-            
-            cfg.model_path = str(checkpoint).replace("=", "\=")
+            checkpoint = sorted((train_experiment_dir / search_folder_name).iterdir())[-1]
+            model_path = str(checkpoint).replace("=", "\=")
 
+            override_list.extend([f'{k}={v}' for k, v in cfg.ml_simulation_params.items()])
+            override_list.append('planner.ml_planner.model_config=${model}') # hydra notation to select model config
+            override_list.append(f'planner.ml_planner.checkpoint_path={model_path}') # path to trained model
             
             # Compose the configuration
-            cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=[
-                f'experiment_name={cfg.experiment}',
-                f'group={cfg.save_dir_simulation}',
-                # f'ego_controller={cfg.ego_controller}',
-                # f'observation={cfg.observation}',
-                f'planner={cfg.planner}',
-                f'model={cfg.model}',
-                'planner.ml_planner.model_config=${model}',  # hydra notation to select model config
-                f'planner.ml_planner.checkpoint_path={cfg.model_path}',  # this path can be replaced by the checkpoint of the model trained in the previous section
-                f'+simulation={cfg.challenge}',
-                f'scenario_builder={cfg.scenario_builder}',
-                f'scenario_filter={cfg.scenarios}',
-                f'scenario_filter.scenario_types={cfg.scenario_types}',
-                f'scenario_filter.num_scenarios_per_type={cfg.scenarios_per_type}',
-            ])
+            cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=override_list)
         
             # Run the simulation loop
             main_simulation(cfg)
@@ -153,17 +90,13 @@ class Tasks():
 
 
     def open_nuboard(self, cfg: DictConfig, simulation_folders: List[str]) -> None:
-        # Location of path with all nuBoard configs
-        cfg.config_path_nuboard = cfg.config_path+'/nuboard'
-        cfg.config_name_nuboard = cfg.config_name+'_nuboard'
-
         # Initialize configuration management system
         hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
         hydra.initialize(config_path=cfg.config_path_nuboard)
 
         # Compose the configuration
         cfg = hydra.compose(config_name=cfg.config_name_nuboard, overrides=[
-            f'scenario_builder={cfg.scenario_builder}',  # set the database (same as simulation) used to fetch data for visualization
+            f'scenario_builder={cfg.dataset}',  # set the database (same as simulation) used to fetch data for visualization
             f'simulation_path={simulation_folders}',  # nuboard file path(s), if left empty the user can open the file inside nuBoard
         ])
         
@@ -210,7 +143,7 @@ class Tasks():
                         filename = os.path.join(root, file)
                         file_list.append(filename)
         print("Configs to run tasks: ", file_list)
-        cfgs = []           
+        cfgs = []
         for filename in file_list:
             if filename.endswith(".yaml"): cfgs.append(yaml.safe_load(open(filename)))
             
@@ -224,7 +157,7 @@ class Tasks():
         if len(cfgs) == 0: print("No config to run tasks!")
         return cfgs
     
-    # @hydra.main(config_path="config", config_name="default_config")
+    # @hydra.main(config_path="config", config_name="default_config") # hydra doesn't support main to be in a class
     def main(self, cfgs: List[DictConfig]):
         #TODO save cfg to self
         # self.cfg = cfg
@@ -236,17 +169,17 @@ class Tasks():
         for cfg in cfgs:
             cfg = DictConfig(cfg) # convert dict to DictConfig
             if "train" in cfg.tasks:
-                task.train(cfg)
+                self.train(cfg)
             if "simulate" in cfg.tasks:
-                simulation_folder = task.simulate(cfg)
+                simulation_folder = self.simulate(cfg)
                 if "open_nuboard" in cfg.tasks:
                     OPEN_NUBOARD = True
                     simulation_folders.append(simulation_folder)
 
-        if OPEN_NUBOARD: task.open_nuboard(cfg, simulation_folders)
+        if OPEN_NUBOARD: self.open_nuboard(cfg, simulation_folders)
 
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs() # ["default_config"]    
+    cfgs = task.load_cfgs("default_config_autobotego") # ["default_config"]
     task.main(cfgs)
