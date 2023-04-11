@@ -8,7 +8,7 @@ defaults:
       - kinematic_agent_augmentation
       - agent_dropout_augmentation
   - override /objective:
-      - imitation_objective
+      - autobots_objective
   - override /splitter: nuplan
   - override /model: autobotego_model
   - override /scenario_filter: training_scenarios
@@ -17,3 +17,7 @@ defaults:
       - avg_heading_error
       - final_displacement_error
       - final_heading_error
+      - autobots_nll_loss
+      - autobots_kl_loss
+      - autobots_post_entropy
+      - autobots_adefde_loss
