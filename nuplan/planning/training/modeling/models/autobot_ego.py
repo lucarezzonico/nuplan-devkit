@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from typing import List, Optional, cast
+
 from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
 from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import AutobotsPredNominalTargetBuilder, AutobotsModeProbsNominalTargetBuilder
 from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import EgoTrajectoryTargetBuilder
@@ -18,8 +20,6 @@ from nuplan.planning.training.preprocessing.feature_builders.agents_feature_buil
 from nuplan.planning.training.preprocessing.features.autobots_feature_conversion import NuplanToAutobotsConverter
 from nuplan.planning.training.modeling.types import FeaturesType, TargetsType
 
-from typing import List, Optional, cast
-# from context_encoders import MapEncoderCNN, MapEncoderPts
 from nuplan.planning.training.modeling.models.context_encoders import MapEncoderCNN, MapEncoderPts
 
 
@@ -127,7 +127,8 @@ class AutoBotEgo(TorchModuleWrapper):
         #     EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling)],
         #     future_trajectory_sampling=future_trajectory_sampling,
         # )
-
+        
+        # super(AutoBotEgo, self).__init__()
         super().__init__(
             feature_builders=[
                 VectorMapFeatureBuilder(

@@ -181,5 +181,5 @@ class Tasks():
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs("default_config_autobotego") # ["default_config"]
+    cfgs = task.load_cfgs("default_config_autobotjoint") # ["default_config"]
     task.main(cfgs)

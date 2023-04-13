@@ -4,10 +4,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from nuplan.planning.training.modeling.models.context_encoders import MapEncoderPtsMA
+from torch import Tensor
+from typing import List, Optional, cast
 
 from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
+from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import AutobotsPredNominalTargetBuilder, AutobotsModeProbsNominalTargetBuilder
+from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import EgoTrajectoryTargetBuilder
+
+from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
+from nuplan.planning.training.preprocessing.feature_builders.vector_map_feature_builder import VectorMapFeatureBuilder
+from nuplan.planning.training.preprocessing.features.agents import Agents
+from nuplan.planning.training.preprocessing.features.vector_map import VectorMap
+from nuplan.planning.training.preprocessing.features.tensor_target import TensorTarget
+from nuplan.planning.training.preprocessing.feature_builders.agents_feature_builder import AgentsFeatureBuilder
+from nuplan.planning.training.preprocessing.features.autobots_feature_conversion import NuplanToAutobotsConverter
+from nuplan.planning.training.modeling.types import FeaturesType, TargetsType
+
+from nuplan.planning.training.modeling.models.context_encoders import MapEncoderPtsMA
 
 
 def init(module, weight_init, bias_init, gain=1):
@@ -78,9 +91,42 @@ class AutoBotJoint(TorchModuleWrapper):
     '''
     AutoBot-Joint Class.
     '''
-    def __init__(self, d_k=128, _M=5, c=5, T=30, L_enc=1, dropout=0.0, k_attr=2, map_attr=3, num_heads=16, L_dec=1,
-                 tx_hidden_size=384, use_map_lanes=False, num_agent_types=None, predict_yaw=False):
-        super(AutoBotJoint, self).__init__()
+    def __init__(self,
+        vector_map_feature_radius: int = 50,
+        vector_map_connection_scales: Optional[List[int]] = [1, 2, 3, 4],
+        past_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=4, time_horizon=1.5),
+        future_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=16, time_horizon=8),
+        d_k: int = 128,
+        _M: int = 5,
+        c: int = 5,
+        T: int = 30,
+        L_enc: int = 1,
+        dropout: float = 0.0,
+        k_attr: int = 2,
+        map_attr: int = 3,
+        num_heads: int = 16,
+        L_dec: int = 1,
+        tx_hidden_size: int = 384,
+        use_map_lanes: bool = False,
+        num_agent_types: int = None,
+        predict_yaw: bool = False
+        ):
+        
+        # super(AutoBotJoint, self).__init__()
+        super().__init__(
+            feature_builders=[
+                VectorMapFeatureBuilder(
+                    radius=vector_map_feature_radius,
+                    connection_scales=vector_map_connection_scales,
+                ),
+                AgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
+            ],
+            target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
+                             AutobotsPredNominalTargetBuilder(),
+                             AutobotsModeProbsNominalTargetBuilder()],
+            # target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling)],
+            future_trajectory_sampling=future_trajectory_sampling,
+        )
 
         init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
 
@@ -97,6 +143,8 @@ class AutoBotJoint(TorchModuleWrapper):
         self.tx_hidden_size = tx_hidden_size
         self.use_map_lanes = use_map_lanes
         self.predict_yaw = predict_yaw
+        
+        self.converter = NuplanToAutobotsConverter(_M=_M)
 
         # INPUT ENCODERS
         self.agents_dynamic_encoder = nn.Sequential(init_(nn.Linear(self.k_attr, self.d_k)))
@@ -240,7 +288,27 @@ class AutoBotJoint(TorchModuleWrapper):
         agents_soc_emb = agents_soc_emb.view(self._M + 1, B, self.T, -1).permute(2, 1, 0, 3)
         return agents_soc_emb
 
-    def forward(self, ego_in, agents_in, roads, agent_types):
+    def forward(self, features: FeaturesType) -> TargetsType:
+        """
+        Predict
+        :param features: input features containing
+                        {
+                            "vector_map": VectorMap,
+                            "agents": Agents,
+                        }
+        :return: targets: predictions from network
+                        {
+                            "trajectory": Trajectory,
+                            "mode_probs": TensorTarget(data=mode_probs), 
+                            "pred": TensorTarget(data=out_dists)
+                        }
+        """        
+        vector_map_data = cast(VectorMap, features["vector_map"])
+        ego_agent_features = cast(Agents, features["agents"])
+        
+        roads=self.converter.VectorMapToAutobotsMapTensor(vector_map_data)
+        agents_in=self.converter.AgentsToAutobotsAgentsTensor(ego_agent_features)
+        ego_in=self.converter.AgentsToAutobotsEgoinTensor(ego_agent_features)
         '''
         :param ego_in: one agent called ego, shape [B, T_obs, k_attr+1] with last values being the existence mask.
         :param agents_in: other scene agents, shape [B, T_obs, M-1, k_attr+1] with last values being the existence mask.
