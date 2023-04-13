@@ -33,3 +33,4 @@ _ext
 docs/_build/
 docs/generated/
 lightning_logs/
+project_records/
