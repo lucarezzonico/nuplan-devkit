@@ -1,12 +1,12 @@
-tasks: [train, simulate, open_nuboard] # [train, simulate, open_nuboard]
+tasks: [train] # [train, simulate, open_nuboard]
 model_name: autobotego # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 8000
-nb_epochs: 2
-batch_size: 4
+nb_scenarios: 37500
+nb_epochs: 36
+batch_size: 32
 lightning_accelerator: ddp_spawn
 nb_workers: 8
 
@@ -17,12 +17,12 @@ scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_conti
 nb_scenarios_per_type: 2 # use 10 scenarios per scenario type
 scenario_types: [
   # starting_straight_traffic_light_intersection_traversal,
-  high_lateral_acceleration,
+  # high_lateral_acceleration,
   # changing_lane,
   # high_magnitude_speed,
   # low_magnitude_speed,
-  # starting_left_turn,
-  # starting_right_turn,
+  starting_left_turn,
+  starting_right_turn,
   # stopping_with_lead,
   # following_lane_with_lead,
   # near_multiple_vehicles,
@@ -34,7 +34,7 @@ scenario_types: [
 
 training_options:
   # optimizer: adam
-  # optimizer.lr: 0.001
+  optimizer.lr: 0.001
   # +optimizer.eps: 1e-4
   # lr_scheduler: multistep_lr # [multistep_lr]
   # lr_scheduler.milestones: [5, 10, 15, 20]

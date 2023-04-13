@@ -4,12 +4,24 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
+from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
+from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import AutobotsPredNominalTargetBuilder, AutobotsModeProbsNominalTargetBuilder
+from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import EgoTrajectoryTargetBuilder
+
+from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
+from nuplan.planning.training.preprocessing.feature_builders.vector_map_feature_builder import VectorMapFeatureBuilder
+from nuplan.planning.training.preprocessing.features.agents import Agents
+from nuplan.planning.training.preprocessing.features.vector_map import VectorMap
+from nuplan.planning.training.preprocessing.features.tensor_target import TensorTarget
+from nuplan.planning.training.preprocessing.feature_builders.agents_feature_builder import AgentsFeatureBuilder
+from nuplan.planning.training.preprocessing.features.autobots_feature_conversion import NuplanToAutobotsConverter
+from nuplan.planning.training.modeling.types import FeaturesType, TargetsType
+
+from typing import List, Optional, cast
+# from context_encoders import MapEncoderCNN, MapEncoderPts
 from nuplan.planning.training.modeling.models.context_encoders import MapEncoderCNN, MapEncoderPts
 
-from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
-from typing import List, Optional, cast
-from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
-from nuplan.planning.training.modeling.types import FeaturesType, TargetsType
 
 def init(module, weight_init, bias_init, gain=1):
     '''
@@ -77,32 +89,59 @@ class AutoBotEgo(TorchModuleWrapper):
     '''
     AutoBot-Ego Class.
     '''
-    def __init__(self,
-                 d_k: int = 128,
-                 _M: int = 5,
-                 c: int = 5,
-                 T: int = 30,
-                 L_enc: int = 1,
-                 dropout: float = 0.0,
-                 k_attr: int = 2,
-                 map_attr: int = 3,
-                 num_heads: int = 16,
-                 L_dec: int = 1,
-                 tx_hidden_size: int = 384,
-                 use_map_img: bool = False,
-                 use_map_lanes: bool = False,
-                 vector_map_feature_radius: int = 50,
-                 vector_map_connection_scales: Optional[List[int]] = [1, 2, 3, 4],
-                 past_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=4, time_horizon=1.5),
-                 future_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=16, time_horizon=8)
-    ):
+    def __init__(self, 
+        vector_map_feature_radius: int = 50,
+        vector_map_connection_scales: Optional[List[int]] = [1, 2, 3, 4],
+        past_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=4, time_horizon=1.5),
+        future_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=16, time_horizon=8),
+        d_k: int = 128,
+        _M: int = 5,
+        c: int = 5,
+        T: int = 30,
+        L_enc: int = 1,
+        dropout: float = 0.0,
+        k_attr: int = 2,
+        map_attr: int = 3,
+        num_heads: int = 16,
+        L_dec: int = 1,
+        tx_hidden_size: int = 384,
+        use_map_img: bool = False,
+        use_map_lanes: bool = False
+        ):
         """
         :param vector_map_feature_radius: The query radius scope relative to the current ego-pose.
         :param vector_map_connection_scales: The hops of lane neighbors to extract, default 1 hop
         :param past_trajectory_sampling: Sampling parameters for past trajectory
         :param future_trajectory_sampling: Sampling parameters for future trajectory
         """
-        super(AutoBotEgo, self).__init__()
+
+        # super().__init__(
+        #     feature_builders=[
+        #         AutobotsMapFeatureBuilder(
+        #             radius=vector_map_feature_radius,
+        #             connection_scales=vector_map_connection_scales,
+        #         ),
+        #         AutobotsAgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
+        #     ],
+        #     target_builders=[AutobotsTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
+        #     EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling)],
+        #     future_trajectory_sampling=future_trajectory_sampling,
+        # )
+
+        super().__init__(
+            feature_builders=[
+                VectorMapFeatureBuilder(
+                    radius=vector_map_feature_radius,
+                    connection_scales=vector_map_connection_scales,
+                ),
+                AgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
+            ],
+            target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
+                             AutobotsPredNominalTargetBuilder(),
+                             AutobotsModeProbsNominalTargetBuilder()],
+            # target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling)],
+            future_trajectory_sampling=future_trajectory_sampling,
+        )
 
         init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
 
@@ -119,6 +158,8 @@ class AutoBotEgo(TorchModuleWrapper):
         self.tx_hidden_size = tx_hidden_size
         self.use_map_img = use_map_img
         self.use_map_lanes = use_map_lanes
+
+        self.converter = NuplanToAutobotsConverter(_M=_M)
 
         # INPUT ENCODERS
         self.agents_dynamic_encoder = nn.Sequential(init_(nn.Linear(k_attr, d_k)))
@@ -200,6 +241,7 @@ class AutoBotEgo(TorchModuleWrapper):
         env_masks = env_masks.unsqueeze(1).repeat(1, self.c, 1).view(ego.shape[0] * self.c, -1)
 
         # Agents stuff
+        # agents=agents.cuda()
         temp_masks = torch.cat((torch.ones_like(env_masks_orig.unsqueeze(-1)), agents[:, :, :, -1]), dim=-1)
         opps_masks = (1.0 - temp_masks).type(torch.BoolTensor).to(agents.device)  # only for agents.
         opps_tensor = agents[:, :, :, :self.k_attr]  # only opponent states
@@ -245,10 +287,18 @@ class AutoBotEgo(TorchModuleWrapper):
         :return: targets: predictions from network
                         {
                             "trajectory": Trajectory,
+                            "mode_probs": TensorTarget(data=mode_probs), 
+                            "pred": TensorTarget(data=out_dists)
                         }
         """
+        vector_map_data = cast(VectorMap, features["vector_map"])
+        ego_agent_features = cast(Agents, features["agents"])
+
+        roads=self.converter.VectorMapToAutobotsMapTensor(vector_map_data)
+        agents_in=self.converter.AgentsToAutobotsAgentsTensor(ego_agent_features)
+        ego_in=self.converter.AgentsToAutobotsEgoinTensor(ego_agent_features)
         '''
-        :param ego_in: [B, T_obs, k_attr+1] with last values being the existence mask.
+        :param ego_in: [B, T_obs, k_attr+1] with last values being the existence mask. 
         :param agents_in: [B, T_obs, M-1, k_attr+1] with last values being the existence mask.
         :param roads: [B, S, P, map_attr+1] representing the road network if self.use_map_lanes or
                       [B, 3, 128, 128] image representing the road network if self.use_map_img or
@@ -258,8 +308,12 @@ class AutoBotEgo(TorchModuleWrapper):
                                         Bivariate Gaussian distribution.
             mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
         '''
-        
-        # print("ego_in = ", ego_in.size(), "\nagents_in = ", agents_in.size(), "\nroads = ", roads.size())
+        # ego_in [64,4,3]
+        # agents_in [64,4,7,3]
+        # roads [64,100,40,4] [Batch, Segment, Points, attributes ()]
+        # B should be batch
+        # T_obs should be observation Time (input time)
+        # k_attr should be the number of the attributes at one timestamp, namely x, y, mask
         B = ego_in.size(0)
 
         # Encode all input observations (k_attr --> d_k)
@@ -310,8 +364,10 @@ class AutoBotEgo(TorchModuleWrapper):
                                                  key_padding_mask=orig_road_segs_masks)[0] + mode_params_emb
         mode_probs = F.softmax(self.prob_predictor(mode_params_emb).squeeze(-1), dim=0).transpose(0, 1)
 
-        # return  [c, T, B, 5], [B, c]
-        # print("out_dists = ", out_dists.size(), "\nmode_probs = ", mode_probs.size())
-        # print(self)
-        return out_dists, mode_probs
+        traj=self.converter.output_tensor_to_trajectory(out_dists, mode_probs)
 
+        # return  [c, T, B, 5], [B, c]
+        # return out_dists, mode_probs
+
+        return {"trajectory": traj, "mode_probs": TensorTarget(data=mode_probs), "pred": TensorTarget(data=out_dists)}
+        # return {"trajectory": traj}
