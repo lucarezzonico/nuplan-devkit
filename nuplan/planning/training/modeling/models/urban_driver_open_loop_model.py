@@ -503,10 +503,9 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
         batch_size, target_sequence_length, source_sequence_length = attn_weights.size()
 
         # Plot the attention weights as a heatmap.
-        fig, axs = plt.subplots(nrows=batch_size, figsize=(10, batch_size))
-        for i in range(batch_size):
-            sns.heatmap(attn_weights[i].cpu().detach().numpy(), cmap="YlGnBu", ax=axs[i])
-            axs[i].set_xlabel("Source Sequence")
-            axs[i].set_ylabel("Target Sequence")
-            axs[i].set_title(f"Attention Weights for Example {i+1}")
+        fig, ax = plt.subplots(figsize=(90,6))
+        sns.heatmap(attn_weights.squeeze(dim=1).cpu().detach().numpy(), cmap="YlGnBu", ax=ax)
+        ax.set_xlabel("Source Sequence")
+        ax.set_ylabel("Target Sequence")
+        ax.set_title("Attention Weights each batch")
         plt.savefig('attention_weights.png')
