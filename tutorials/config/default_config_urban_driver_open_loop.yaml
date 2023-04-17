@@ -4,9 +4,9 @@ model_name: urban_driver_open_loop # [vector, autobotego]
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 8000
-nb_epochs: 12
-batch_size: 16
+nb_scenarios: 200000
+nb_epochs: 36
+batch_size: 8
 lightning_accelerator: ddp_spawn
 nb_workers: 8
 
@@ -23,12 +23,12 @@ scenario_types: [
   low_magnitude_speed,
   starting_left_turn,
   starting_right_turn,
-  # stopping_with_lead,
-  # following_lane_with_lead,
-  # near_multiple_vehicles,
-  # traversing_pickup_dropoff,
-  # behind_long_vehicle,
-  # waiting_for_pedestrian_to_cross,
+  stopping_with_lead,
+  following_lane_with_lead,
+  near_multiple_vehicles,
+  traversing_pickup_dropoff,
+  behind_long_vehicle,
+  waiting_for_pedestrian_to_cross,
   # stationary_in_traffic
 ]
 
@@ -37,7 +37,7 @@ training_options:
   optimizer.lr: 5e-5
   # +optimizer.eps: 1e-4
   lr_scheduler: multistep_lr # [multistep_lr]
-  lr_scheduler.milestones: [4, 8, 12, 20]
+  lr_scheduler.milestones: [4, 8, 12, 16, 20, 24, 28, 32]
   lr_scheduler.gamma: 0.6
   scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
 
