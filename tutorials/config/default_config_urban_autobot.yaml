@@ -1,0 +1,95 @@
+tasks: [train] # [train, simulate, open_nuboard]
+model_name: urban_autobot # [vector, autobotego]
+
+# adapt training params
+model_fct: train # [train, test, cache]
+dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
+nb_scenarios: 375000
+nb_epochs: 36
+batch_size: 32
+lightning_accelerator: ddp_spawn
+nb_workers: 8
+
+# adapt simulation params
+planner: ml_planner  # [simple_planner, ml_planner]
+challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
+scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
+nb_scenarios_per_type: 2 # use 10 scenarios per scenario type
+scenario_types: [
+  starting_straight_traffic_light_intersection_traversal,
+  high_lateral_acceleration,
+  changing_lane,
+  high_magnitude_speed,
+  low_magnitude_speed,
+  starting_left_turn,
+  starting_right_turn,
+  stopping_with_lead,
+  following_lane_with_lead,
+  near_multiple_vehicles,
+  traversing_pickup_dropoff,
+  behind_long_vehicle,
+  waiting_for_pedestrian_to_cross,
+  # stationary_in_traffic
+]
+
+training_options:
+  optimizer: adam_autobots
+  optimizer.lr: 5e-5
+  # +optimizer.eps: 1e-4
+  lr_scheduler: multistep_lr_autobots # [multistep_lr]
+  lr_scheduler.milestones: [4, 8, 12, 16, 20, 24, 28, 32]
+  lr_scheduler.gamma: 0.6
+  scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
+
+simulation_options:
+  scenario_filter.scenario_types: ${scenario_types}
+  # scenario_filter.log_names: [2021.08.24.17.34.27_veh-45_01118_01346]
+  # selected_simulation_metrics: [ego_acceleration_statistics, ego_jerk_statistics]
+
+
+# deduce params
+config_name_training: ${model_name}_training
+config_name_simulation: default_simulation
+config_name_nuboard: default_nuboard
+config_path: ../nuplan/planning/script/config # Location of path with all training configs
+config_path_training: ${config_path}/training
+config_path_simulation: ${config_path}/simulation
+config_path_nuboard: ${config_path}/nuboard
+save_dir_training: ${oc.env:NUPLAN_EXP_ROOT}/training
+save_dir_simulation: ${oc.env:NUPLAN_EXP_ROOT}/simulation
+experiment: ${model_name}_experiment
+model: ${model_name}_model
+log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model} # where to get trained model from
+
+
+# for training override
+training_params:
+  group: ${save_dir_training}
+  cache.cache_path: ${save_dir_training}/cache
+  experiment_name: ${experiment}
+  job_name: ${model_name}_model
+  py_func: ${model_fct}
+  +training: training_${model_name}_model
+  scenario_builder: ${dataset} # [nuplan, nuplan_challenge, nuplan_mini]
+  scenario_filter.limit_total_scenarios: ${nb_scenarios} # Choose 500 scenarios to train with
+  lightning.trainer.params.accelerator: ${lightning_accelerator}  # ddp is not allowed in interactive environment, using ddp_spawn instead - this can bottleneck the data pipeline, it is recommended to run training outside the notebook
+  lightning.trainer.params.max_epochs: ${nb_epochs}
+  data_loader.params.batch_size: ${batch_size}
+  data_loader.params.num_workers: ${nb_workers}
+
+
+# for simulation override
+simulation_params:
+  group: ${save_dir_simulation}
+  experiment_name: ${experiment}
+  # ego_controller: perfect_tracking_controller   # already set with challenge
+  # observation: box_observation                  # already set with challenge
+  planner: ${planner}
+  +simulation: ${challenge}
+  scenario_builder: ${dataset}
+  scenario_filter: ${scenarios}
+  scenario_filter.num_scenarios_per_type: ${nb_scenarios_per_type}
+
+ml_simulation_params:
+  model: ${model}
+

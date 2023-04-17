@@ -1,0 +1,23 @@
+# @package _global_
+job_name: urban_autobot_model
+py_func: train
+objective_aggregate_mode: mean
+
+defaults:
+  - override /data_augmentation:
+      - kinematic_history_generic_agent_augmentation
+      - generic_agent_dropout_augmentation
+  - override /objective:
+      - autobots_objective
+  - override /splitter: nuplan
+  - override /model: urban_autobot_model
+  - override /scenario_filter: training_scenarios
+  - override /training_metric:
+      - avg_displacement_error
+      - avg_heading_error
+      - final_displacement_error
+      - final_heading_error
+      - autobots_nll_loss
+      - autobots_kl_loss
+      - autobots_post_entropy
+      - autobots_adefde_loss
