@@ -26,6 +26,19 @@ import numpy as np
 from numpy.typing import NDArray
 import itertools
 
+
+
+from nuplan.planning.training.preprocessing.feature_builders.scriptable_feature_builder import ScriptableFeatureBuilder
+from nuplan.planning.training.preprocessing.feature_builders.abstract_feature_builder import AbstractFeatureBuilder
+from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
+from nuplan.planning.training.preprocessing.features.scenario_type import ScenarioType
+
+
+from nuplan.planning.training.preprocessing.features.abstract_model_feature import (
+    FeatureDataType,
+)
+
+
 # def coords_to_map_attr(coords) -> NDArray:
 #     """Map coordinates in VectorMap format to AutoBots features
 
@@ -165,6 +178,66 @@ import itertools
 
 #         return Tensor(agents_ts)
 
+
+class ScenarioTypeFeatureBuilder(AbstractFeatureBuilder):
+    """
+    Feature builder for constructing map features in a vector-representation.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize vector map builder with configuration parameters.
+        :param radius:  The query radius scope relative to the current ego-pose.
+        :param connection_scales: Connection scales to generate. Use the 1-hop connections if it's left empty.
+        :return: Vector map data including lane segment coordinates and connections within the given range.
+        """
+        super().__init__()
+        self.test_scenario_types=[
+            "starting_straight_traffic_light_intersection_traversal",
+            "high_lateral_acceleration",
+            "changing_lane",
+            "high_magnitude_speed",
+            "low_magnitude_speed",
+            "starting_left_turn",
+            "starting_right_turn",
+            "stopping_with_lead",
+            "following_lane_with_lead",
+            "near_multiple_vehicles",
+            "traversing_pickup_dropoff",
+            "behind_long_vehicle",
+            "waiting_for_pedestrian_to_cross",
+            "stationary_in_traffic"
+        ]
+
+    @torch.jit.unused
+    def get_feature_type(self) -> Type[AbstractModelFeature]:
+        """Inherited, see superclass."""
+        return ScenarioType  # type: ignore
+
+    @torch.jit.unused
+    @classmethod
+    def get_feature_unique_name(cls) -> str:
+        """Inherited, see superclass."""
+        return "scenario_type"
+
+    @torch.jit.unused
+    def get_features_from_scenario(self, scenario: AbstractScenario) -> ScenarioType:
+        """Inherited, see superclass."""
+        with torch.no_grad():
+            scenario_type = scenario.scenario_type
+
+            try:
+                scenario_type_idx: FeatureDataType = torch.Tensor([self.test_scenario_types.index(scenario_type)])
+            except:
+                print("scenario_type not in test_scenario_types")
+
+            return ScenarioType(scenario_type=scenario_type_idx)
+        
+    @torch.jit.unused
+    def get_features_from_simulation(self, current_input: PlannerInput, initialization: PlannerInitialization) -> ScenarioType:
+        return ScenarioType(scenario_type="ADD_from_simulation")
+    
+#####################################################################################################3
 
 # This class is unused
 class AutobotsTargetBuilder(EgoTrajectoryTargetBuilder):

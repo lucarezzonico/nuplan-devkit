@@ -22,6 +22,8 @@ from typing import List, Optional, cast
 # from context_encoders import MapEncoderCNN, MapEncoderPts
 from nuplan.planning.training.modeling.models.context_encoders import MapEncoderCNN, MapEncoderPts
 
+from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import ScenarioTypeFeatureBuilder
+
 
 def init(module, weight_init, bias_init, gain=1):
     '''
@@ -135,6 +137,7 @@ class AutoBotEgo(TorchModuleWrapper):
                     connection_scales=vector_map_connection_scales,
                 ),
                 AgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
+                ScenarioTypeFeatureBuilder(),
             ],
             target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
                              AutobotsPredNominalTargetBuilder(),
