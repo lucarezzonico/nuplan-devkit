@@ -224,10 +224,8 @@ class ScenarioTypeFeatureBuilder(AbstractFeatureBuilder):
     def get_features_from_scenario(self, scenario: AbstractScenario) -> ScenarioType:
         """Inherited, see superclass."""
         with torch.no_grad():
-            scenario_type = scenario.scenario_type
-
             try:
-                scenario_type_idx: FeatureDataType = torch.Tensor([self.test_scenario_types.index(scenario_type)])
+                scenario_type_idx: FeatureDataType = torch.tensor([self.test_scenario_types.index(scenario.scenario_type)])
             except:
                 print("scenario_type not in test_scenario_types")
 
