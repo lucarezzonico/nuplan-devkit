@@ -15,6 +15,7 @@ L_dec: 4
 tx_hidden_size: 384
 use_map_img: False
 use_map_lanes: False
+predict_yaw: False
 
 # # Model setup
 # map_net_scales: 4
