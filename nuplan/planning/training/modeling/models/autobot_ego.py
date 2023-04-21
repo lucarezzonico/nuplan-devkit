@@ -299,6 +299,7 @@ class AutoBotEgo(TorchModuleWrapper):
                         {
                             "vector_map": VectorMap,
                             "agents": Agents,
+                            "scenario_type": ScenarioType,
                         }
         :return: targets: predictions from network
                         {
