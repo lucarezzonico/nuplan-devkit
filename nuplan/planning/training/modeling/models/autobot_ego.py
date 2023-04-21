@@ -23,6 +23,7 @@ from typing import List, Optional, cast
 from nuplan.planning.training.modeling.models.context_encoders import MapEncoderCNN, MapEncoderPts
 
 from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import ScenarioTypeFeatureBuilder, EgoGoalFeatureBuilder
+from nuplan.planning.training.preprocessing.feature_builders.expert_feature_builder import ExpertFeatureBuilder
 
 
 def init(module, weight_init, bias_init, gain=1):
@@ -150,6 +151,7 @@ class AutoBotEgo(TorchModuleWrapper):
                 ),
                 AgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
                 ScenarioTypeFeatureBuilder(),
+                ExpertFeatureBuilder(trajectory_sampling=future_trajectory_sampling),
                 # EgoGoalFeatureBuilder(),
             ],
             target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
@@ -301,6 +303,7 @@ class AutoBotEgo(TorchModuleWrapper):
                             "vector_map": VectorMap,
                             "agents": Agents,
                             "scenario_type": ScenarioType,
+                            "expert": Agents, (future)
                             # "ego_goal": EgoGoal,
                         }
         :return: targets: predictions from network
