@@ -218,7 +218,7 @@ class ScenarioTypeFeatureBuilder(AbstractFeatureBuilder):
     @classmethod
     def get_feature_unique_name(cls) -> str:
         """Inherited, see superclass."""
-        return "scenario_type"
+        return "scenario_type_idx"
 
     @torch.jit.unused
     def get_features_from_scenario(self, scenario: AbstractScenario) -> ScenarioType:
