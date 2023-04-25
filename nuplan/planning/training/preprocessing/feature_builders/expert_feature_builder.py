@@ -57,6 +57,14 @@ class ExpertFeatureBuilder(ScriptableFeatureBuilder):
         """Inherited, see superclass."""
         # Retrieve present/future ego states and agent boxes
         with torch.no_grad():
+            
+            # TODO: remove current ego pose from future trajectory
+            # TODO: understand difference between get_ego_future_trajectory() and get_expert_ego_trajectory()
+            # nb_iterations = scenario.get_number_of_iterations()
+            # expert_goal_state = scenario.get_expert_goal_state()
+            # expert_states = scenario.get_expert_ego_trajectory() # EXPERT
+            # TODO: future trajectory (blue in simulation) is 8s (len 16), but ground truth (orange in simulation) is 15s
+            
             anchor_ego_state = scenario.initial_ego_state
 
             future_ego_states = scenario.get_ego_future_trajectory(
