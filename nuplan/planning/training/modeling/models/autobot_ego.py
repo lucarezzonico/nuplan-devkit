@@ -22,6 +22,9 @@ from typing import List, Optional, cast
 # from context_encoders import MapEncoderCNN, MapEncoderPts
 from nuplan.planning.training.modeling.models.context_encoders import MapEncoderCNN, MapEncoderPts
 
+from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import ScenarioTypeFeatureBuilder, EgoGoalFeatureBuilder
+from nuplan.planning.training.preprocessing.feature_builders.expert_feature_builder import ExpertFeatureBuilder
+
 
 def init(module, weight_init, bias_init, gain=1):
     '''
@@ -61,14 +64,19 @@ class OutputModel(nn.Module):
     This class operates on the output of AutoBot-Ego's decoder representation. It produces the parameters of a
     bivariate Gaussian distribution.
     '''
-    def __init__(self, d_k=64):
+    def __init__(self, d_k=64, predict_yaw=False):
         super(OutputModel, self).__init__()
         self.d_k = d_k
+        self.predict_yaw = predict_yaw
+        out_len = 5
+        if predict_yaw:
+            out_len = 6
+        
         init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         self.observation_model = nn.Sequential(
             init_(nn.Linear(d_k, d_k)), nn.ReLU(),
             init_(nn.Linear(d_k, d_k)), nn.ReLU(),
-            init_(nn.Linear(d_k, 5))
+            init_(nn.Linear(d_k, out_len))
         )
         self.min_stdev = 0.01
 
@@ -82,7 +90,13 @@ class OutputModel(nn.Module):
         x_sigma = F.softplus(pred_obs[:, :, 2]) + self.min_stdev
         y_sigma = F.softplus(pred_obs[:, :, 3]) + self.min_stdev
         rho = torch.tanh(pred_obs[:, :, 4]) * 0.9  # for stability
-        return torch.stack([x_mean, y_mean, x_sigma, y_sigma, rho], dim=2)
+        # return torch.stack([x_mean, y_mean, x_sigma, y_sigma, rho], dim=2)
+    
+        if self.predict_yaw:
+            yaws = pred_obs[:, :, 5]  # for stability
+            return torch.stack([x_mean, y_mean, x_sigma, y_sigma, rho, yaws], dim=2)
+        else:
+            return torch.stack([x_mean, y_mean, x_sigma, y_sigma, rho], dim=2)
 
 
 class AutoBotEgo(TorchModuleWrapper):
@@ -94,6 +108,7 @@ class AutoBotEgo(TorchModuleWrapper):
         vector_map_connection_scales: Optional[List[int]] = [1, 2, 3, 4],
         past_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=4, time_horizon=1.5),
         future_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=16, time_horizon=8),
+        expert_trajectory_sampling: TrajectorySampling = TrajectorySampling(num_poses=30, time_horizon=15),
         d_k: int = 128,
         _M: int = 5,
         c: int = 5,
@@ -106,7 +121,8 @@ class AutoBotEgo(TorchModuleWrapper):
         L_dec: int = 1,
         tx_hidden_size: int = 384,
         use_map_img: bool = False,
-        use_map_lanes: bool = False
+        use_map_lanes: bool = False,
+        predict_yaw: bool = False
         ):
         """
         :param vector_map_feature_radius: The query radius scope relative to the current ego-pose.
@@ -135,6 +151,9 @@ class AutoBotEgo(TorchModuleWrapper):
                     connection_scales=vector_map_connection_scales,
                 ),
                 AgentsFeatureBuilder(trajectory_sampling=past_trajectory_sampling),
+                ScenarioTypeFeatureBuilder(),
+                ExpertFeatureBuilder(trajectory_sampling=expert_trajectory_sampling),
+                # EgoGoalFeatureBuilder(),
             ],
             target_builders=[EgoTrajectoryTargetBuilder(future_trajectory_sampling=future_trajectory_sampling),
                              AutobotsPredNominalTargetBuilder(),
@@ -158,6 +177,7 @@ class AutoBotEgo(TorchModuleWrapper):
         self.tx_hidden_size = tx_hidden_size
         self.use_map_img = use_map_img
         self.use_map_lanes = use_map_lanes
+        self.predict_yaw = predict_yaw
 
         self.converter = NuplanToAutobotsConverter(_M=_M)
 
@@ -205,7 +225,7 @@ class AutoBotEgo(TorchModuleWrapper):
         self.pos_encoder = PositionalEncoding(d_k, dropout=0.0)
 
         # ============================== OUTPUT MODEL ==============================
-        self.output_model = OutputModel(d_k=self.d_k)
+        self.output_model = OutputModel(d_k=self.d_k, predict_yaw=self.predict_yaw)
 
         # ============================== Mode Prob prediction (P(z|X_1:t)) ==============================
         self.P = nn.Parameter(torch.Tensor(c, 1, d_k), requires_grad=True)  # Appendix C.2.
@@ -283,6 +303,9 @@ class AutoBotEgo(TorchModuleWrapper):
                         {
                             "vector_map": VectorMap,
                             "agents": Agents,
+                            "scenario_type": ScenarioType,
+                            "expert": Agents, (future)
+                            # "ego_goal": EgoGoal,
                         }
         :return: targets: predictions from network
                         {
@@ -304,8 +327,8 @@ class AutoBotEgo(TorchModuleWrapper):
                       [B, 3, 128, 128] image representing the road network if self.use_map_img or
                       [B, 1, 1] if self.use_map_lanes and self.use_map_img are False.
         :return:
-            pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of
-                                        Bivariate Gaussian distribution.
+            pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
+            pred_obs: shape [c, T, B, 5(6)] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution (and the yaw prediction if self.predict_yaw).
             mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
         '''
         # ego_in [64,4,3]

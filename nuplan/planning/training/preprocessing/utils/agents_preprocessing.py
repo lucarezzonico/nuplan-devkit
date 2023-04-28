@@ -792,13 +792,42 @@ def sampled_past_ego_states_to_tensor(past_ego_states: List[EgoState]) -> torch.
     return output
 
 
-def sampled_past_timestamps_to_tensor(past_time_stamps: List[TimePoint]) -> torch.Tensor:
+def sampled_future_ego_states_to_tensor(future_ego_states: List[EgoState]) -> torch.Tensor:
+    """
+    Converts a list of N ego states into a N x 7 tensor. The 7 fields are as defined in `EgoInternalIndex`
+    :param past_ego_states: The ego states to convert.
+    :return: The converted tensor.
+    """
+    output = torch.zeros((len(future_ego_states), EgoInternalIndex.dim()), dtype=torch.float32)
+    for i in range(0, len(future_ego_states), 1):
+        output[i, EgoInternalIndex.x()] = future_ego_states[i].rear_axle.x
+        output[i, EgoInternalIndex.y()] = future_ego_states[i].rear_axle.y
+        output[i, EgoInternalIndex.heading()] = future_ego_states[i].rear_axle.heading
+        output[i, EgoInternalIndex.vx()] = future_ego_states[i].dynamic_car_state.rear_axle_velocity_2d.x
+        output[i, EgoInternalIndex.vy()] = future_ego_states[i].dynamic_car_state.rear_axle_velocity_2d.y
+        output[i, EgoInternalIndex.ax()] = future_ego_states[i].dynamic_car_state.rear_axle_acceleration_2d.x
+        output[i, EgoInternalIndex.ay()] = future_ego_states[i].dynamic_car_state.rear_axle_acceleration_2d.y
+
+    return output
+
+
+def sampled_past_timestamps_to_tensor(future_time_stamps: List[TimePoint]) -> torch.Tensor:
     """
     Converts a list of N past timestamps into a 1-d tensor of shape [N]. The field is the timestamp in uS.
     :param past_time_stamps: The time stamps to convert.
     :return: The converted tensor.
     """
-    flat = [t.time_us for t in past_time_stamps]
+    flat = [t.time_us for t in future_time_stamps]
+    return torch.tensor(flat, dtype=torch.int64)
+
+
+def sampled_future_timestamps_to_tensor(future_time_stamps: List[TimePoint]) -> torch.Tensor:
+    """
+    Converts a list of N past timestamps into a 1-d tensor of shape [N]. The field is the timestamp in uS.
+    :param past_time_stamps: The time stamps to convert.
+    :return: The converted tensor.
+    """
+    flat = [t.time_us for t in future_time_stamps]
     return torch.tensor(flat, dtype=torch.int64)
 
 

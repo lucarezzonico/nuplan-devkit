@@ -16,7 +16,7 @@ log_config: false                                   # Whether to log the final c
 
 # Execution
 max_number_of_workers: null                         # Set null to disable threading for simulation execution
-seed: 0                                             # Random seed value.
+seed: 1                                             # Random seed value.
 enable_profiling: false                             # Whether to enable profiler which will be dumped to "profiling" folder
 gpu: true                                           # Whether to use available GPUs during training/simulation
 
