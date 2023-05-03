@@ -66,6 +66,9 @@ class LightningModuleWrapper(pl.LightningModule):
             for feature in metric.get_list_of_required_target_types():
                 assert feature in model_targets, f"Metric target: \"{feature}\" is not in model computed targets!"
 
+        self.wait_train_end: bool = False
+        self.list_loss : list = []
+
     def _step(self, batch: Tuple[FeaturesType, TargetsType, ScenarioListType], prefix: str) -> torch.Tensor:
         """
         Propagates the model forward and backwards and computes/logs losses and metrics.
@@ -127,12 +130,28 @@ class LightningModuleWrapper(pl.LightningModule):
         :param loss_name: name given to the loss for logging
         """
         self.log(f'loss/{prefix}_{loss_name}', loss)
-
+        
+        self.custom_epoch_loss_log(prefix, loss, loss_name)
+            
         for key, value in objectives.items():
             self.log(f'objectives/{prefix}_{key}', value)
 
         for key, value in metrics.items():
             self.log(f'metrics/{prefix}_{key}', value)
+            
+    def custom_epoch_loss_log(self, prefix: str, loss: torch.Tensor, loss_name: str = 'loss'):
+        if prefix == 'train':
+            self.wait_train_end = True
+            self.list_loss.append(loss)
+                   
+        if prefix == 'val' and self.wait_train_end:
+            self.wait_train_end = False
+            loss_epoch_last_iteration = self.list_loss[-1] # select loss of last train last iteration
+            if not isinstance(self.list_loss, list): self.list_loss = [self.list_loss] # in case of only 1 iteration
+            loss_epoch_mean = torch.mean(torch.stack(self.list_loss, dim=0), dim=0) # select mean loss of all iterations
+            self.list_loss = []
+            self.log(f'loss_epoch/train_{loss_name}_epoch_last_iteration', loss_epoch_last_iteration)
+            self.log(f'loss_epoch/train_{loss_name}_epoch_mean', loss_epoch_mean)
 
     def training_step(self, batch: Tuple[FeaturesType, TargetsType, ScenarioListType], batch_idx: int) -> torch.Tensor:
         """
