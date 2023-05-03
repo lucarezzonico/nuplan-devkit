@@ -124,14 +124,14 @@ class VisualizationCallback(pl.Callback):
             'agents' in features or 'generic_agents' in features
         ):
             image_batch = self._get_images_from_vector_features(features, targets, predictions)
-            expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions)
+            # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions)
         else:
             return
 
         tag = f'{prefix}_visualization_{batch_idx}'
         
-        # self._save_images(torch.from_numpy(image_batch), tag, training_step)
-        self._save_images(torch.from_numpy(expert_image_batch), tag, training_step)
+        self._save_images(torch.from_numpy(image_batch), tag, training_step)
+        # self._save_images(torch.from_numpy(expert_image_batch), tag, training_step)
 
         for logger in loggers:
             if isinstance(logger, torch.utils.tensorboard.writer.SummaryWriter):
@@ -223,8 +223,9 @@ class VisualizationCallback(pl.Callback):
         images = list()
         vector_map_feature = 'vector_map' if 'vector_map' in features else 'vector_set_map'
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
-        
-        expert_trajectory = Trajectory(data=torch.stack(features["expert"].ego))
+        expert_feature = 'expert' if 'expert' in features else 'generic_expert'
+
+        expert_trajectory = Trajectory(data=torch.stack(features[expert_feature].ego)[:,:-1,:3])
 
         for vector_map, agents, target_trajectory, expert in zip(
             features[vector_map_feature].unpack(),
