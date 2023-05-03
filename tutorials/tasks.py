@@ -62,16 +62,8 @@ class Tasks():
             simulation_folder = cfg.output_dir
             
         elif cfg.planner == 'ml_planner':
-            i = -1
-            search_folder_name = 'best_model'  # or 'checkpoints'
-            # get best model
-            train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
-            while not (train_experiment_dir / search_folder_name).exists():
-                i -= 1
-                train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
-                if i == -10: break
-            checkpoint = sorted((train_experiment_dir / search_folder_name).iterdir())[-1]
-            model_path = str(checkpoint).replace("=", "\=")
+            model_path = self.get_model_path(cfg)
+            print("Simulation Model: ", model_path)
 
             override_list.extend([f'{k}={v}' for k, v in cfg.ml_simulation_params.items()])
             override_list.append('planner.ml_planner.model_config=${model}') # hydra notation to select model config
@@ -102,6 +94,27 @@ class Tasks():
         
         # Run nuBoard
         main_nuboard(cfg)
+        
+        
+    def get_model_path(self, cfg: DictConfig) -> str:
+        search_folder_name = 'best_model'  # or 'checkpoints'
+        
+        # if we know where the model to simulate is
+        if (Path(cfg.log_dir) / search_folder_name).exists():
+            train_experiment_dir = Path(cfg.log_dir)
+        else: # otherwise get the last trained model
+            i = -1
+            # get best model
+            train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
+            while not (train_experiment_dir / search_folder_name).exists():
+                i -= 1
+                train_experiment_dir = sorted(Path(cfg.log_dir).iterdir())[i]  # get last experiment
+                if i == -10: break
+                
+        checkpoint = sorted((train_experiment_dir / search_folder_name).iterdir())[-1] # get last saved model
+        model_path = str(checkpoint).replace("=", "\=")
+        
+        return model_path
         
 
     def scenario_visualzation(self):
