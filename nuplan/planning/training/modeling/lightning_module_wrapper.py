@@ -66,8 +66,13 @@ class LightningModuleWrapper(pl.LightningModule):
             for feature in metric.get_list_of_required_target_types():
                 assert feature in model_targets, f"Metric target: \"{feature}\" is not in model computed targets!"
 
-        self.wait_train_end: bool = False
         self.list_loss : list = []
+        self.count_epoch: int = -1
+        self.count_train_step: int = 0
+        self.count_train_step_total: int = 0
+        self.count_val_step: int = 0
+        self.count_val_step_total: int = 0
+        self.previous_prefix: str = "val"
 
     def _step(self, batch: Tuple[FeaturesType, TargetsType, ScenarioListType], prefix: str) -> torch.Tensor:
         """
@@ -139,20 +144,37 @@ class LightningModuleWrapper(pl.LightningModule):
         for key, value in metrics.items():
             self.log(f'metrics/{prefix}_{key}', value)
             
-    def custom_epoch_loss_log(self, prefix: str, loss: torch.Tensor, loss_name: str = 'loss'):
+    def custom_epoch_loss_log(self, prefix: str, loss: torch.Tensor, loss_name: str = 'loss') -> None:
+        
+        if prefix == 'train' and self.previous_prefix == 'val':
+            self.previous_prefix = 'train'
+            self.count_epoch += 1
+            
         if prefix == 'train':
-            self.wait_train_end = True
-            self.list_loss.append(loss)
-                   
-        if prefix == 'val' and self.wait_train_end:
-            self.wait_train_end = False
+            self.previous_prefix = 'train'
+            self.list_loss.append(loss) # keep track of loss for each step during one epoch
+            
+            self.count_val_step = 0
+            self.count_train_step += 1
+            self.count_train_step_total += 1
+            logger.info(f'Epoch {self.count_epoch}, Training Step: {self.count_train_step}, Total Training Steps: {self.count_train_step_total}')
+        
+        if prefix == 'val' and self.previous_prefix == 'train':
+            self.previous_prefix = 'val'
             loss_epoch_last_iteration = self.list_loss[-1] # select loss of last train last iteration
             if not isinstance(self.list_loss, list): self.list_loss = [self.list_loss] # in case of only 1 iteration
             loss_epoch_mean = torch.mean(torch.stack(self.list_loss, dim=0), dim=0) # select mean loss of all iterations
             self.list_loss = []
             self.log(f'loss_epoch/train_{loss_name}_epoch_last_iteration', loss_epoch_last_iteration)
             self.log(f'loss_epoch/train_{loss_name}_epoch_mean', loss_epoch_mean)
-
+            
+        if prefix == 'val':
+            self.previous_prefix = 'val'
+            self.count_train_step = 0
+            self.count_val_step += 1
+            self.count_val_step_total += 1
+            logger.info(f'Epoch {self.count_epoch}, Validation Step: {self.count_val_step}, Total Validation Steps: {self.count_val_step_total}')
+        
     def training_step(self, batch: Tuple[FeaturesType, TargetsType, ScenarioListType], batch_idx: int) -> torch.Tensor:
         """
         Step called for each batch example during training.
