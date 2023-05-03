@@ -11,7 +11,9 @@ import glob
 from typing import List, Optional, cast
 import shutil
 from PIL import Image
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Tasks():
     
@@ -20,7 +22,7 @@ class Tasks():
         self.selected_scenario_types = '[near_multiple_vehicles, on_pickup_dropoff, starting_unprotected_cross_turn, high_magnitude_jerk]' # select scenario types
     
     def train(self, cfg: DictConfig) -> None:
-        print('log_dir = ' + cfg.log_dir)
+        logger.info(f' log_dir={cfg.log_dir}')
         
         # Initialize configuration management system
         hydra.core.global_hydra.GlobalHydra.instance().clear()  # reinitialize hydra if already initialized
@@ -63,7 +65,7 @@ class Tasks():
             
         elif cfg.planner == 'ml_planner':
             model_path = self.get_model_path(cfg)
-            print("Simulation Model: ", model_path)
+            logger.info(f' model_path={model_path}')
 
             override_list.extend([f'{k}={v}' for k, v in cfg.ml_simulation_params.items()])
             override_list.append('planner.ml_planner.model_config=${model}') # hydra notation to select model config
@@ -137,7 +139,7 @@ class Tasks():
             try:
                 frames[0].save(f'{gif_root}/{dir}.gif', format='GIF', append_images=rest_images, save_all=True, duration=500, loop=0)
             except:
-                print(f'Could not create {dir}.gif :(')
+                logger.info(f' Could not create {dir}.gif :(')
 
     def load_cfgs(self, names: Optional[List[str]]=None) -> List[DictConfig]:
         
@@ -155,7 +157,8 @@ class Tasks():
                     if file in files:
                         filename = os.path.join(root, file)
                         file_list.append(filename)
-        print("Configs to run tasks: ", file_list)
+        logger.info(f' cfgs={file_list}')
+
         cfgs = []
         for filename in file_list:
             if filename.endswith(".yaml"): cfgs.append(yaml.safe_load(open(filename)))
@@ -167,7 +170,7 @@ class Tasks():
             # # Compose the configuration
             # cfg = hydra.compose(config_name=filename_without_ext)
             # cfgs.append(cfg)
-        if len(cfgs) == 0: print("No config to run tasks!")
+        if len(cfgs) == 0: logger.info(f' No config to run tasks!')
         return cfgs
     
     # @hydra.main(config_path="config", config_name="default_config") # hydra doesn't support main to be in a class
