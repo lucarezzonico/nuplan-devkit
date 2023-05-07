@@ -93,6 +93,8 @@ def build_lightning_module(cfg: DictConfig, torch_module_wrapper: TorchModuleWra
         lr_scheduler=cfg.lr_scheduler if 'lr_scheduler' in cfg else None,
         warm_up_lr_scheduler=cfg.warm_up_lr_scheduler if 'warm_up_lr_scheduler' in cfg else None,
         objective_aggregate_mode=cfg.objective_aggregate_mode,
+        nb_scenarios=cfg.scenario_filter.limit_total_scenarios,
+        nb_epochs=cfg.lightning.trainer.params.max_epochs,
     )
 
     return cast(pl.LightningModule, model)

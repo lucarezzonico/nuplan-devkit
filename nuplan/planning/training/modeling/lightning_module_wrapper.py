@@ -33,6 +33,8 @@ class LightningModuleWrapper(pl.LightningModule):
         lr_scheduler: Optional[DictConfig] = None,
         warm_up_lr_scheduler: Optional[DictConfig] = None,
         objective_aggregate_mode: str = 'mean',
+        nb_scenarios: int = 500,
+        nb_epochs: int = 2,
     ) -> None:
         """
         Initializes the class.
@@ -56,6 +58,8 @@ class LightningModuleWrapper(pl.LightningModule):
         self.lr_scheduler = lr_scheduler
         self.warm_up_lr_scheduler = warm_up_lr_scheduler
         self.objective_aggregate_mode = objective_aggregate_mode
+        self.nb_scenarios = nb_scenarios
+        self.nb_epochs = nb_epochs
 
         # Validate metrics objectives and model
         model_targets = {builder.get_feature_unique_name() for builder in model.get_list_of_computed_target()}
