@@ -15,6 +15,8 @@ from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
 
 logger = logging.getLogger(__name__)
 
+from pathlib import Path
+
 
 @dataclass(frozen=True)
 class TrainingEngine:
@@ -58,7 +60,10 @@ def build_training_engine(cfg: DictConfig, worker: WorkerPool) -> TrainingEngine
 
     # Build trainer
     trainer = build_trainer(cfg)
-
+    
+    # Copy checkpoint dir to model to be able to access it in visualization_callback
+    model.set_checkpoint_dir(str(Path(trainer.checkpoint_callback.dirpath).parent))
+    
     engine = TrainingEngine(trainer=trainer, datamodule=datamodule, model=model)
 
     return engine

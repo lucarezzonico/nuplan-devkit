@@ -132,7 +132,7 @@ class VisualizationCallback(pl.Callback):
 
         tag = f'{prefix}_visualization_{batch_idx}'
         
-        self._save_images(torch.from_numpy(image_batch), tag, training_step)
+        self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
         # self._save_images(torch.from_numpy(expert_image_batch), tag, training_step)
 
         for logger in loggers:
@@ -144,10 +144,20 @@ class VisualizationCallback(pl.Callback):
                     dataformats='NHWC',
                 )
                 
-    def _save_images(self, image_batch, tag, training_step):
+    def _save_images(
+        self, image_batch: torch.Tensor, tag: str, training_step: int, pl_module: pl.LightningModule
+    ) -> None:
+        """
+        Visualizes and logs a batch of data (features, targets, predictions) from the model.
+
+        :param image_batch: tensor of images
+        :param tag: tag for folder name to save images
+        :param training_step: global training step
+        :param pl_module: lightning module used for inference
+        """
         image_batch = torch.permute(image_batch, (0, 3, 1, 2))
         exp_root = os.getenv('NUPLAN_EXP_ROOT')
-        path = f'{exp_root}/training/scenario_visualization/{tag}'
+        path = f'{pl_module.get_checkpoint_dir()}/training_visualization/{tag}'      #TODO:save images to the current training folder
         if not os.path.exists(path): os.makedirs(path, exist_ok=True)
         save_image(image_batch.float()/255.0, f'{path}/step_{training_step}.png')
 

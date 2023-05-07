@@ -13,6 +13,9 @@ import shutil
 from PIL import Image
 import logging
 
+from nuplan.planning.training.experiments.training import TrainingEngine
+
+
 logger = logging.getLogger(__name__)
 
 class Tasks():
@@ -29,7 +32,7 @@ class Tasks():
         hydra.initialize(config_path=cfg.config_path_training)
         
         # remove previous scenario_visualization folder
-        shutil.rmtree(f'{cfg.save_dir_training}/scenario_visualization', ignore_errors=True)
+        # shutil.rmtree(f'{cfg.save_dir_training}/scenario_visualization', ignore_errors=True)
         
         override_list = [f'{k}={v}' for k, v in cfg.training_params.items()]
         override_list.extend([f'{k}={v}' for k, v in cfg.training_options.items()])
@@ -38,9 +41,9 @@ class Tasks():
         cfg = hydra.compose(config_name=cfg.config_name_training, overrides=override_list)
         
         # Run the training loop, optionally inspect training artifacts through tensorboard (above cell)
-        main_train(cfg)
+        engine = main_train(cfg)
         
-        self.scenario_visualzation()
+        self.scenario_visualzation(engine)
 
         
     def simulate(self, cfg: DictConfig) -> str:
@@ -119,11 +122,11 @@ class Tasks():
         return model_path
         
 
-    def scenario_visualzation(self):
+    def scenario_visualzation(self, engine: TrainingEngine) -> None:
         # Create the frames
         frames = []
         exp_root = os.getenv('NUPLAN_EXP_ROOT')
-        gif_root = f'{exp_root}/training/scenario_visualization'
+        gif_root = f'{engine.model.get_checkpoint_dir()}/training_visualization'
         if not os.path.exists(gif_root): os.makedirs(gif_root, exist_ok=True)
         
         # Get the list of all files and folders in the specified directory

@@ -264,3 +264,18 @@ class LightningModuleWrapper(pl.LightningModule):
         """
         return self.model.__class__.__name__
     
+    def get_checkpoint_dir(self) -> str:
+        """
+        Returns the model's checkpoint directory.
+
+        :return: model's checkpoint directory
+        """
+        return self.checkpoint_dir
+    
+    def set_checkpoint_dir(self, checkpoint_dir: str) -> None:
+        """
+        Sets the model's checkpoint directory.
+
+        :param checkpoint_dir: model's checkpoint directory
+        """
+        self.checkpoint_dir = checkpoint_dir
