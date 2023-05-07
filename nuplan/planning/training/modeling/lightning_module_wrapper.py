@@ -255,3 +255,12 @@ class LightningModuleWrapper(pl.LightningModule):
             optimizer_dict['lr_scheduler'] = lr_scheduler_params
 
         return optimizer_dict if 'lr_scheduler' in optimizer_dict else optimizer_dict['optimizer']
+
+    def name(self) -> str:
+        """
+        Returns the model's name.
+
+        :return: model's name
+        """
+        return self.model.__class__.__name__
+    

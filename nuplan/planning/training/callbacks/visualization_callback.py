@@ -92,7 +92,7 @@ class VisualizationCallback(pl.Callback):
             targets: TargetsType = batch[1]
             predictions = self._infer_model(pl_module, move_features_type_to_device(features, pl_module.device))
 
-            self._log_batch(loggers, features, targets, predictions, batch_idx, training_step, prefix)
+            self._log_batch(loggers, features, targets, predictions, batch_idx, training_step, prefix, pl_module)
 
     def _log_batch(
         self,
@@ -103,6 +103,7 @@ class VisualizationCallback(pl.Callback):
         batch_idx: int,
         training_step: int,
         prefix: str,
+        pl_module: pl.LightningModule,
     ) -> None:
         """
         Visualizes and logs a batch of data (features, targets, predictions) from the model.
@@ -114,16 +115,17 @@ class VisualizationCallback(pl.Callback):
         :param batch_idx: index of total batches to visualize
         :param training_step: global training step
         :param prefix: prefix to add to the log tag
+        :param pl_module: lightning module used for inference
         """
-        if 'trajectory' not in targets or 'trajectory' not in predictions:
-            return
+        # if 'trajectory' not in targets or 'trajectory' not in predictions:
+        #     return
 
         if 'raster' in features:
             image_batch = self._get_images_from_raster_features(features, targets, predictions)
         elif ('vector_map' in features or 'vector_set_map' in features) and (
             'agents' in features or 'generic_agents' in features
         ):
-            image_batch = self._get_images_from_vector_features(features, targets, predictions)
+            image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
             # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions)
         else:
             return
@@ -177,7 +179,7 @@ class VisualizationCallback(pl.Callback):
         return np.asarray(images)
 
     def _get_images_from_vector_features(
-        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType
+        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str
     ) -> npt.NDArray[np.uint8]:
         """
         Create a list of RGB raster images from a batch of model data of vectormap and agent features.
@@ -190,12 +192,19 @@ class VisualizationCallback(pl.Callback):
         images = list()
         vector_map_feature = 'vector_map' if 'vector_map' in features else 'vector_set_map'
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
+        
+        if model_name == 'UrbanDriverClosedLoopModel':
+            target_traj = predictions['target'].unpack()
+            predicted_traj = predictions['t0_traj'].unpack()
+        else:
+            target_traj = targets['trajectory'].unpack()
+            predicted_traj = predictions['trajectory'].unpack()
 
         for vector_map, agents, target_trajectory, predicted_trajectory in zip(
             features[vector_map_feature].unpack(),
             features[agents_feature].unpack(),
-            targets['trajectory'].unpack(),
-            predictions['trajectory'].unpack(),
+            target_traj,
+            predicted_traj,
         ):
             image = get_raster_from_vector_map_with_agents(
                 vector_map,
