@@ -45,12 +45,12 @@ class TrajectoryWeightDecayImitationObjective(AbstractObjective):
         Computes the objective's loss given the ground truth targets and the model's predictions
         and weights it based on a fixed weight factor.
 
-        :param predictions: model's predictions
-        :param targets: ground truth targets from the dataset
+        :param predictions: model's predictions (model's outputs)
+        :param targets: ground truth targets from the dataset (according to target_builders in model's init)
         :return: loss scalar tensor
         """
         predicted_trajectory = cast(Trajectory, predictions["trajectory"])
-        targets_trajectory = cast(Trajectory, targets["trajectory"])
+        targets_trajectory = cast(Trajectory, targets["trajectory"])    # predictions["target"] for closed loop, same for metrics
         loss_weights = extract_scenario_type_weight(
             scenarios, self._scenario_type_loss_weighting, device=predicted_trajectory.xy.device
         )

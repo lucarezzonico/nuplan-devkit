@@ -64,6 +64,7 @@ class ExpertFeatureBuilder(ScriptableFeatureBuilder):
             # expert_goal_state = scenario.get_expert_goal_state()
             # expert_states = scenario.get_expert_ego_trajectory() # EXPERT
             # TODO: future trajectory (blue in simulation) is 8s (len 16), but ground truth (orange in simulation) is 15s
+            # TODO: replace agents.ego & agents.agents with expert.ego expert.agents
             
             anchor_ego_state = scenario.initial_ego_state
 
