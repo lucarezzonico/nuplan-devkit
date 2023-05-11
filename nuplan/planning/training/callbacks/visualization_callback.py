@@ -126,14 +126,14 @@ class VisualizationCallback(pl.Callback):
             'agents' in features or 'generic_agents' in features
         ):
             image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
-            # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions)
+            # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions, pl_module.name())
         else:
             return
 
         tag = f'{prefix}_visualization_{batch_idx}'
         
         self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
-        # self._save_images(torch.from_numpy(expert_image_batch), tag, training_step)
+        # self._save_images(torch.from_numpy(expert_image_batch), tag, training_step, pl_module)
 
         for logger in loggers:
             if isinstance(logger, torch.utils.tensorboard.writer.SummaryWriter):
@@ -204,7 +204,7 @@ class VisualizationCallback(pl.Callback):
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
         
         if model_name == 'UrbanDriverClosedLoopModel':
-            target_traj = predictions['target'].unpack()
+            target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions['t0_traj'].unpack()
         else:
             target_traj = targets['trajectory'].unpack()
@@ -229,7 +229,7 @@ class VisualizationCallback(pl.Callback):
         return np.asarray(images)
     
     def _get_expert_images_from_vector_features(
-        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType
+        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str
     ) -> npt.NDArray[np.uint8]:
         """
         Create a list of RGB raster images from a batch of model data of vectormap and agent features.
@@ -243,14 +243,21 @@ class VisualizationCallback(pl.Callback):
         vector_map_feature = 'vector_map' if 'vector_map' in features else 'vector_set_map'
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
         expert_feature = 'expert' if 'expert' in features else 'generic_expert'
-
+        
         expert_trajectory = Trajectory(data=torch.stack(features[expert_feature].ego)[:,:-1,:3])
+        
+        if model_name == 'UrbanDriverClosedLoopModel':
+            target_traj = predictions['target'].unpack()
+            predicted_traj = predictions['ts_traj'].unpack()
+        else:
+            target_traj = targets['trajectory'].unpack()
+            predicted_traj = predictions['trajectory'].unpack()
 
         for vector_map, agents, target_trajectory, expert in zip(
             features[vector_map_feature].unpack(),
             features[agents_feature].unpack(),
-            targets['trajectory'].unpack(),
-            expert_trajectory.unpack(),
+            target_traj,
+            predicted_traj,
         ):
             image = get_raster_from_vector_map_with_agents(
                 vector_map,
