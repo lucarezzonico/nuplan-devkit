@@ -47,6 +47,30 @@ def pad_avails(avails: torch.Tensor, pad_to: int, dim: int) -> torch.Tensor:
     return torch.cat([avails, pad], dim=dim)
 
 
+def pad_avails_batch(avails: torch.Tensor, pad_to: int, dim: int) -> torch.Tensor:
+    """
+    Pad vectors to 'pad_to' size. Dimensions are:
+    B: batch size
+    N: number of elements (polylines)
+    P: number of points
+    :param avails: Availabilities to be padded, should be (B,N,P) and we're padding dim.
+    :param pad_to: Number of elements or points.
+    :param dim: Dimension at which to apply padding.
+    :return: The padded polyline availabilities (B,N,P).
+    """
+    num_batches, num_els, num_points = avails.shape
+    if dim == 0 or dim == -4:
+        num_batches = pad_to - num_batches
+    elif dim == 1 or dim == -3:
+        num_els = pad_to - num_els
+    elif dim == 2 or dim == -2:
+        num_points = pad_to - num_points
+    else:
+        raise ValueError(dim)
+    pad = torch.zeros(num_batches, num_els, num_points, dtype=avails.dtype, device=avails.device)
+    return torch.cat([avails, pad], dim=dim)
+
+
 def pad_polylines(polylines: torch.Tensor, pad_to: int, dim: int) -> torch.Tensor:
     """
     Copied from L5Kit's implementation `pad_points`:
@@ -74,6 +98,33 @@ def pad_polylines(polylines: torch.Tensor, pad_to: int, dim: int) -> torch.Tenso
     else:
         raise ValueError(dim)
     pad = torch.zeros(num_els, num_points, num_feats, dtype=polylines.dtype, device=polylines.device)
+    return torch.cat([polylines, pad], dim=dim)
+
+
+def pad_polylines_batch(polylines: torch.Tensor, pad_to: int, dim: int) -> torch.Tensor:
+    """
+    Pad vectors to 'pad_to' size. Dimensions are:
+    B: batch size
+    N: number of elements (polylines)
+    P: number of points
+    F: number of features
+    :param polylines: Polylines to be padded, should be (B,N,P,F) and we're padding dim.
+    :param pad_to: Number of elements, points, or features.
+    :param dim: Dimension at which to apply padding.
+    :return: The padded polylines (B,N,P,F).
+    """
+    num_batches, num_els, num_points, num_feats = polylines.shape
+    if dim == 0 or dim == -4:
+        num_batches = pad_to - num_batches
+    elif dim == 1 or dim == -3:
+        num_els = pad_to - num_els
+    elif dim == 2 or dim == -2:
+        num_points = pad_to - num_points
+    elif dim == 3 or dim == -1:
+        num_feats = pad_to - num_feats
+    else:
+        raise ValueError(dim)
+    pad = torch.zeros(num_batches, num_els, num_points, num_feats, dtype=polylines.dtype, device=polylines.device)
     return torch.cat([polylines, pad], dim=dim)
 
 

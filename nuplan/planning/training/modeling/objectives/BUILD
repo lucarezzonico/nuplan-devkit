@@ -48,3 +48,14 @@ py_library(
         "//nuplan/planning/training/preprocessing/features:trajectory",
     ],
 )
+
+py_library(
+    name = "closed_loop_trajectory_weight_decay_imitation_objective",
+    srcs = ["closed_loop_trajectory_weight_decay_imitation_objective.py"],
+    deps = [
+        ":scenario_weight_utils",
+        "//nuplan/planning/training/modeling:types",
+        "//nuplan/planning/training/modeling/objectives:abstract_objective",
+        "//nuplan/planning/training/preprocessing/features:trajectory",
+    ],
+)

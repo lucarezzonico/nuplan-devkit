@@ -29,6 +29,8 @@ from nuplan.planning.training.modeling.models.urban_driver_open_loop_model_utils
     TypeEmbedding,
     pad_avails,
     pad_polylines,
+    pad_avails_batch,
+    pad_polylines_batch,
 )
 from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
 from nuplan.planning.training.modeling.types import FeaturesType, TargetsType
@@ -50,109 +52,15 @@ from nuplan.planning.training.preprocessing.target_builders.expert_trajectory_ta
     ExpertTrajectoryTargetBuilder,
 )
 
+from nuplan.planning.training.modeling.models.urban_driver_closed_loop_model_utils import (
+    transform_points,
+    update_transformation_matrices,
+    build_target_normalization
+)
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def transform_points(
-    element: torch.Tensor, matrix: torch.Tensor, avail: torch.Tensor, yaw: Optional[torch.Tensor] = None
-) -> torch.Tensor:
-    """Transform points element using the translation tr. Reapply avail afterwards to
-    ensure we don't generate any "ghosts" in the past
-
-    Args:
-        element (torch.Tensor): tensor with points to transform (B,N,P,3)
-        matrix (torch.Tensor): Bx3x3 RT matrices
-        avail (torch.Tensor): the availability of element
-        yaw (Optional[torch.Tensor]): optional yaws of the rotation matrices to apply to yaws in element
-
-    Returns:
-        torch.Tensor: the transformed tensor
-    """
-    tr = matrix[:, :-1, -1:].view(-1, 1, 1, 2)
-    rot = matrix[:, None, :2, :2].transpose(2, 3)  # NOTE: required because we post-multiply
-
-    # NOTE: before we did this differently - why?
-    transformed_xy = element[..., :2] @ rot + tr
-    transformed_yaw = element[..., 2:3]
-    if yaw is not None:
-        transformed_yaw = element[..., 2:3] + yaw.view(-1, 1, 1, 1)
-
-    element = torch.cat([transformed_xy, transformed_yaw], dim=3)
-    element = element * avail[..., None].clone()  # NOTE: no idea why clone is required actually
-    return element
-
-def update_transformation_matrices(pred_xy_step_unnorm: torch.Tensor, pred_yaw_step: torch.Tensor,
-                                    t0_from_ts: torch.Tensor, ts_from_t0: torch.Tensor, yaw_t0_from_ts: torch.Tensor,
-                                    yaw_ts_from_t0: torch.Tensor, zero: torch.Tensor, one: torch.Tensor
-                                    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """ Updates the used transformation matrices to reflect AoI's new position.
-    """
-    tr_tsplus_from_ts = -pred_xy_step_unnorm
-    yaw_tsplus_from_ts = -pred_yaw_step
-    yaw_ts_from_tsplus = pred_yaw_step
-
-    # NOTE: these are full roto-translation matrices. We use the closed form and not invert for performance reasons.
-    # tsplus_from_ts will bring the current predictions at ts into 0.
-    tsplus_from_ts = torch.cat(
-        [
-            yaw_tsplus_from_ts.cos(),
-            -yaw_tsplus_from_ts.sin(),
-            tr_tsplus_from_ts[:, :1] * yaw_tsplus_from_ts.cos() - tr_tsplus_from_ts[:, 1:] * yaw_tsplus_from_ts.sin(),
-            yaw_tsplus_from_ts.sin(),
-            yaw_tsplus_from_ts.cos(),
-            tr_tsplus_from_ts[:, :1] * yaw_tsplus_from_ts.sin() + tr_tsplus_from_ts[:, 1:] * yaw_tsplus_from_ts.cos(),
-            zero,
-            zero,
-            one,
-        ],
-        dim=1,
-    ).view(-1, 3, 3)
-    # this is only required to keep t0_from_ts updated
-    ts_from_tsplus = torch.cat(
-        [
-            yaw_ts_from_tsplus.cos(),
-            -yaw_ts_from_tsplus.sin(),
-            -tr_tsplus_from_ts[:, :1],
-            yaw_ts_from_tsplus.sin(),
-            yaw_ts_from_tsplus.cos(),
-            -tr_tsplus_from_ts[:, 1:],
-            zero,
-            zero,
-            one,
-        ],
-        dim=1,
-    ).view(-1, 3, 3)
-
-    # update RTs and yaws by including tsplus (next step ts)
-    t0_from_ts = t0_from_ts @ ts_from_tsplus
-    ts_from_t0 = tsplus_from_ts @ ts_from_t0
-    yaw_t0_from_ts = yaw_t0_from_ts + yaw_ts_from_tsplus
-    yaw_ts_from_t0 = yaw_ts_from_t0 + yaw_tsplus_from_ts
-
-    return t0_from_ts, ts_from_t0, yaw_t0_from_ts, yaw_ts_from_t0
-
-def build_target_normalization(nsteps: int) -> torch.Tensor:
-    """Normalization coefficients approximated with 3-rd degree polynomials
-    to avoid storing them explicitly, and allow changing the length
-
-    :param nsteps: number of steps to generate normalisation for
-    :type nsteps: int
-    :return: XY scaling for the steps
-    :rtype: torch.Tensor
-    """
-
-    normalization_polynomials = np.asarray(
-        [
-            # x scaling
-            [3.28e-05, -0.0017684, 1.8088969, 2.211737],
-            # y scaling
-            [-5.67e-05, 0.0052056, 0.0138343, 0.0588579],  # manually decreased by 5
-        ]
-    )
-    # assuming we predict x, y and yaw
-    coefs = np.stack([np.poly1d(p)(np.arange(nsteps)) for p in normalization_polynomials])
-    coefs = coefs.astype(np.float32)
-    return torch.from_numpy(coefs).T
 
 @dataclass
 class UrbanDriverClosedLoopModelParams:
@@ -179,7 +87,8 @@ class UrbanDriverClosedLoopModelFeatureParams:
     """
     Parameters for UrbanDriverOpenLoop features.
         feature_types: List of feature types (agent and map) supported by model. Used in type embedding layer.
-        total_max_points: maximum number of points per element, to maintain fixed sized features.
+        past_time_steps: maximum number of points per element, to maintain fixed sized features.
+        future_time_steps: maximum number of points per element, to maintain fixed sized features.
         feature_dimension: feature size, to maintain fixed sized features.
         agent_features: Agent features to request from agent feature builder.
         ego_dimension: Feature dimensionality to keep from ego features.
@@ -196,7 +105,8 @@ class UrbanDriverClosedLoopModelFeatureParams:
     """
 
     feature_types: Dict[str, int]
-    total_max_points: int
+    past_time_steps: int
+    future_time_steps: int
     feature_dimension: int
     agent_features: List[str]
     ego_dimension: int
@@ -216,8 +126,11 @@ class UrbanDriverClosedLoopModelFeatureParams:
         Sanitize feature parameters.
         :raise AssertionError if parameters invalid.
         """
-        if not self.total_max_points > 0:
-            raise AssertionError(f"Total max points must be >0! Got: {self.total_max_points}")
+        if not self.past_time_steps > 0:
+            raise AssertionError(f"past_time_steps must be >0! Got: {self.past_time_steps}")
+
+        if not self.future_time_steps > 0:
+            raise AssertionError(f"future_time_steps must be >0! Got: {self.future_time_steps}")
 
         if not self.feature_dimension >= 2:
             raise AssertionError(f"Feature dimension must be >=2! Got: {self.feature_dimension}")
@@ -317,6 +230,7 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             ],
             target_builders=[
                 EgoTrajectoryTargetBuilder(target_params.future_trajectory_sampling),
+                EgoTrajectoryTargetBuilder(target_params.future_trajectory_sampling),
                 ExpertTrajectoryTargetBuilder(target_params.expert_trajectory_sampling)
             ],
             future_trajectory_sampling=target_params.future_trajectory_sampling,
@@ -335,7 +249,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         if self._model_params.global_embedding_size != self._model_params.local_embedding_size:
             self.global_from_local = nn.Linear(in_features=self._model_params.local_embedding_size,
                                                out_features=self._model_params.global_embedding_size)
-        num_timesteps = self.future_trajectory_sampling.num_poses
+        # num_timesteps = self.future_trajectory_sampling.num_poses
+        num_timesteps = 1
         self.global_head = MultiheadAttentionGlobalHead(
             self._model_params.global_embedding_size,
             num_timesteps,
@@ -344,25 +259,142 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         )
         
         ########### Closed-Loop Model ###########
-        self.normalize_targets = True
-        weights_scaling = [1.0, 1.0, 1.0] # target weights for loss calculation
-        num_outputs = len(weights_scaling)
-        future_num_frames = 12 # total number of loaded frames from data -> for closed-loop: frames to unroll with loss = future_num_frames - warmup_num_frames
-        num_targets = num_outputs * future_num_frames
-        num_timesteps = num_targets // num_outputs
+
+        self._history_num_frames_ego = 4
+        self._history_num_frames_agents = 4
         
-        self.register_buffer("weights_scaling", torch.as_tensor(weights_scaling))
+    def name(self) -> str:
+        return self.__class__.__name__
+    
+    def extract_future_agent_features(
+        self, ego_agent_features: GenericAgents, batch_size: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Extract ego and agent features into format expected by network and build accompanying availability matrix.
+        :param ego_agent_features: agent features to be extracted (ego + other agents)
+        :param batch_size: number of samples in batch to extract
+        :return:
+            agent_features: <torch.FloatTensor: batch_size, num_elements (polylines) (1+max_agents*num_agent_types),
+                num_points_per_element, feature_dimension>. Stacked ego, agent, and map features.
+            agent_avails: <torch.BoolTensor: batch_size, num_elements (polylines) (1+max_agents*num_agent_types),
+                num_points_per_element>. Bool specifying whether feature is available or zero padded.
+        """
+        agent_features = []  # List[<torch.FloatTensor: max_agents+1, future_time_steps, feature_dimension>: batch_size]
+        agent_avails = []  # List[<torch.BoolTensor: max_agents+1, future_time_steps>: batch_size]
 
-        if self.normalize_targets:
-            scale = build_target_normalization(num_timesteps)
-            self.register_buffer("xy_scale", scale)
+        # features have different size across batch so we use per sample feature extraction
+        for sample_idx in range(batch_size):
+            # Ego features
+            # maintain fixed feature size through trimming/padding
+            sample_ego_feature = ego_agent_features.ego[sample_idx][
+                ..., : min(self._feature_params.ego_dimension, self._feature_params.feature_dimension)
+            ].unsqueeze(0)
+            if (
+                min(self._feature_params.ego_dimension, GenericAgents.ego_state_dim())
+                < self._feature_params.feature_dimension
+            ):
+                sample_ego_feature = pad_polylines(sample_ego_feature, self._feature_params.feature_dimension, dim=2)
 
-        # normalization buffers
-        self.register_buffer("agent_std", torch.tensor([1.6919, 0.0365, 0.0218]))
-        self.register_buffer("other_agent_std", torch.tensor([33.2631, 21.3976, 1.5490]))
+            sample_ego_avails = torch.ones(
+                sample_ego_feature.shape[0],
+                sample_ego_feature.shape[1],
+                dtype=torch.bool,
+                device=sample_ego_feature.device,
+            )
 
-        self._history_num_frames_ego = 1
+            # Don't reverse for future timesteps
+            # reverse points so frames are in reverse chronological order, i.e. (t_0, t_-1, ..., t_-N)
+            # sample_ego_feature = torch.flip(sample_ego_feature, dims=[1])
 
+            # maintain fixed number of points per polyline
+            sample_ego_feature = sample_ego_feature[:, : self._feature_params.future_time_steps, ...]    # [1, 16, 3]
+            sample_ego_avails = sample_ego_avails[:, : self._feature_params.future_time_steps, ...]      # [1, 16]
+            if sample_ego_feature.shape[1] < self._feature_params.future_time_steps:
+                sample_ego_feature = pad_polylines(sample_ego_feature, self._feature_params.future_time_steps, dim=1)
+                sample_ego_avails = pad_avails(sample_ego_avails, self._feature_params.future_time_steps, dim=1)
+
+            sample_features = [sample_ego_feature] # list([1, 16, 3])
+            sample_avails = [sample_ego_avails]    # list([1, 16])
+
+            # Agent features
+            for feature_name in self._feature_params.agent_features: # VEHICLE
+                # if there exist at least one valid agent in the sample
+                if ego_agent_features.has_agents(feature_name, sample_idx):
+                    # num_frames x num_agents x num_features -> num_agents x num_frames x num_features
+                    sample_agent_features = torch.permute(
+                        ego_agent_features.agents[feature_name][sample_idx], (1, 0, 2)
+                    )
+                    # maintain fixed feature size through trimming/padding
+                    sample_agent_features = sample_agent_features[
+                        ..., : min(self._feature_params.agent_dimension, self._feature_params.feature_dimension)
+                    ]
+                    if (
+                        min(self._feature_params.agent_dimension, GenericAgents.agents_states_dim())
+                        < self._feature_params.feature_dimension
+                    ):
+                        sample_agent_features = pad_polylines(
+                            sample_agent_features, self._feature_params.feature_dimension, dim=2
+                        )
+
+                    sample_agent_avails = torch.ones(
+                        sample_agent_features.shape[0],
+                        sample_agent_features.shape[1],
+                        dtype=torch.bool,
+                        device=sample_agent_features.device,
+                    )
+
+                    # reverse points so frames are in reverse chronological order, i.e. (t_0, t_-1, ..., t_-N)
+                    # sample_agent_features = torch.flip(sample_agent_features, dims=[1])
+
+                    # maintain fixed number of points per polyline
+                    sample_agent_features = sample_agent_features[:, : self._feature_params.future_time_steps, ...]
+                    sample_agent_avails = sample_agent_avails[:, : self._feature_params.future_time_steps, ...]
+                    if sample_agent_features.shape[1] < self._feature_params.future_time_steps:
+                        sample_agent_features = pad_polylines(
+                            sample_agent_features, self._feature_params.future_time_steps, dim=1
+                        )
+                        sample_agent_avails = pad_avails(
+                            sample_agent_avails, self._feature_params.future_time_steps, dim=1
+                        )
+
+                    # maintained fixed number of agent polylines of each type per sample
+                    sample_agent_features = sample_agent_features[: self._feature_params.max_agents, ...]
+                    sample_agent_avails = sample_agent_avails[: self._feature_params.max_agents, ...]
+                    if sample_agent_features.shape[0] < (self._feature_params.max_agents):
+                        sample_agent_features = pad_polylines(
+                            sample_agent_features, self._feature_params.max_agents, dim=0
+                        )
+                        sample_agent_avails = pad_avails(sample_agent_avails, self._feature_params.max_agents, dim=0)
+
+                else:
+                    sample_agent_features = torch.zeros(
+                        self._feature_params.max_agents,
+                        self._feature_params.future_time_steps,
+                        self._feature_params.feature_dimension,
+                        dtype=torch.float32,
+                        device=sample_ego_feature.device,
+                    )
+                    sample_agent_avails = torch.zeros(
+                        self._feature_params.max_agents,
+                        self._feature_params.future_time_steps,
+                        dtype=torch.bool,
+                        device=sample_agent_features.device,
+                    )
+
+                # add features, avails to sample
+                sample_features.append(sample_agent_features)
+                sample_avails.append(sample_agent_avails)
+
+            sample_features = torch.cat(sample_features, dim=0)
+            sample_avails = torch.cat(sample_avails, dim=0)
+
+            agent_features.append(sample_features)
+            agent_avails.append(sample_avails)
+        agent_features = torch.stack(agent_features)
+        agent_avails = torch.stack(agent_avails)
+
+        return agent_features, agent_avails
+    
     def extract_agent_features(
         self, ego_agent_features: GenericAgents, batch_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -376,8 +408,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             agent_avails: <torch.BoolTensor: batch_size, num_elements (polylines) (1+max_agents*num_agent_types),
                 num_points_per_element>. Bool specifying whether feature is available or zero padded.
         """
-        agent_features = []  # List[<torch.FloatTensor: max_agents+1, total_max_points, feature_dimension>: batch_size]
-        agent_avails = []  # List[<torch.BoolTensor: max_agents+1, total_max_points>: batch_size]
+        agent_features = []  # List[<torch.FloatTensor: max_agents+1, past_time_steps+1, feature_dimension>: batch_size]
+        agent_avails = []  # List[<torch.BoolTensor: max_agents+1, past_time_steps+1>: batch_size]
 
         # features have different size across batch so we use per sample feature extraction
         for sample_idx in range(batch_size):
@@ -403,11 +435,11 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             sample_ego_feature = torch.flip(sample_ego_feature, dims=[1])
 
             # maintain fixed number of points per polyline
-            sample_ego_feature = sample_ego_feature[:, : self._feature_params.total_max_points, ...]
-            sample_ego_avails = sample_ego_avails[:, : self._feature_params.total_max_points, ...]
-            if sample_ego_feature.shape[1] < self._feature_params.total_max_points:
-                sample_ego_feature = pad_polylines(sample_ego_feature, self._feature_params.total_max_points, dim=1)
-                sample_ego_avails = pad_avails(sample_ego_avails, self._feature_params.total_max_points, dim=1)
+            sample_ego_feature = sample_ego_feature[:, : self._feature_params.past_time_steps+1, ...]
+            sample_ego_avails = sample_ego_avails[:, : self._feature_params.past_time_steps+1, ...]
+            if sample_ego_feature.shape[1] < self._feature_params.past_time_steps+1:
+                sample_ego_feature = pad_polylines(sample_ego_feature, self._feature_params.past_time_steps+1, dim=1)
+                sample_ego_avails = pad_avails(sample_ego_avails, self._feature_params.past_time_steps+1, dim=1)
 
             sample_features = [sample_ego_feature]
             sample_avails = [sample_ego_avails]
@@ -443,14 +475,14 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
                     sample_agent_features = torch.flip(sample_agent_features, dims=[1])
 
                     # maintain fixed number of points per polyline
-                    sample_agent_features = sample_agent_features[:, : self._feature_params.total_max_points, ...]
-                    sample_agent_avails = sample_agent_avails[:, : self._feature_params.total_max_points, ...]
-                    if sample_agent_features.shape[1] < self._feature_params.total_max_points:
+                    sample_agent_features = sample_agent_features[:, : self._feature_params.past_time_steps+1, ...]
+                    sample_agent_avails = sample_agent_avails[:, : self._feature_params.past_time_steps+1, ...]
+                    if sample_agent_features.shape[1] < self._feature_params.past_time_steps+1:
                         sample_agent_features = pad_polylines(
-                            sample_agent_features, self._feature_params.total_max_points, dim=1
+                            sample_agent_features, self._feature_params.past_time_steps+1, dim=1
                         )
                         sample_agent_avails = pad_avails(
-                            sample_agent_avails, self._feature_params.total_max_points, dim=1
+                            sample_agent_avails, self._feature_params.past_time_steps+1, dim=1
                         )
 
                     # maintained fixed number of agent polylines of each type per sample
@@ -465,14 +497,14 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
                 else:
                     sample_agent_features = torch.zeros(
                         self._feature_params.max_agents,
-                        self._feature_params.total_max_points,
+                        self._feature_params.past_time_steps+1,
                         self._feature_params.feature_dimension,
                         dtype=torch.float32,
                         device=sample_ego_feature.device,
                     )
                     sample_agent_avails = torch.zeros(
                         self._feature_params.max_agents,
-                        self._feature_params.total_max_points,
+                        self._feature_params.past_time_steps+1,
                         dtype=torch.bool,
                         device=sample_agent_features.device,
                     )
@@ -504,8 +536,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             map_avails: <torch.BoolTensor: batch_size, num_elements (polylines) (max_lanes),
                 num_points_per_element>. Bool specifying whether feature is available or zero padded.
         """
-        map_features = []  # List[<torch.FloatTensor: max_map_features, total_max_points, feature_dim>: batch_size]
-        map_avails = []  # List[<torch.BoolTensor: max_map_features, total_max_points>: batch_size]
+        map_features = []  # List[<torch.FloatTensor: max_map_features, past_time_steps+1+future_time_steps, feature_dim>: batch_size]
+        map_avails = []  # List[<torch.BoolTensor: max_map_features, past_time_steps+1+future_time_steps>: batch_size]
 
         # features have different size across batch so we use per sample feature extraction
         for sample_idx in range(batch_size):
@@ -527,12 +559,12 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
                     coords = torch.cat((coords, tl_data), dim=2)
 
                 # maintain fixed number of points per map element (polyline)
-                coords = coords[:, : self._feature_params.total_max_points, ...]
-                avails = avails[:, : self._feature_params.total_max_points]
+                coords = coords[:, : self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps, ...]
+                avails = avails[:, : self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps]
 
-                if coords.shape[1] < self._feature_params.total_max_points:
-                    coords = pad_polylines(coords, self._feature_params.total_max_points, dim=1)
-                    avails = pad_avails(avails, self._feature_params.total_max_points, dim=1)
+                if coords.shape[1] < self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps:
+                    coords = pad_polylines(coords, self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps, dim=1)
+                    avails = pad_avails(avails, self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps, dim=1)
 
                 # maintain fixed number of features per point
                 coords = coords[..., : self._feature_params.feature_dimension]
@@ -636,11 +668,12 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
                         {
                             "vector_set_map": VectorSetMap,
                             "generic_agents": GenericAgents,
-                            "expert": GenericAgents, (future)
+                            "generic_expert": GenericAgents, (future)
                         }
         :return: targets: predictions from network
                         {
-                            "trajectory": Trajectory,
+                            "ts_traj": Trajectory,
+                            "t0_traj": Trajectory,
                             "target": Trajectory,
                         }
         """
@@ -653,18 +686,18 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         future_ego_agent_features = cast(GenericAgents, features["generic_expert"])
 
         # Extract features across batch
-        agents_future_polys, agents_future_avail = self.extract_agent_features(future_ego_agent_features, batch_size)
-        agents_past_polys, agents_past_avail = self.extract_agent_features(ego_agent_features, batch_size)
-        map_features, map_avails = self.extract_map_features(vector_set_map_data, batch_size)
+        agents_future_polys, agents_future_avail = self.extract_future_agent_features(future_ego_agent_features, batch_size) # [8, 31, 16, 3] & [8, 31, 16]
+        agents_past_polys, agents_past_avail = self.extract_agent_features(ego_agent_features, batch_size) # [8, 31, 5, 3] & [8, 31, 5]
+        map_features, map_avails = self.extract_map_features(vector_set_map_data, batch_size) # [8, 160, 5, 3] & [8, 160, 5]
         
         # ==== get additional info from the batch, or fall back to sensible defaults
-        future_num_frames = agents_future_polys.shape[2] #TODO: add new param, since agents_future_polys.shape[2] is already padded to 20
-        max_num_vectors = map_features.shape[1]          #TODO: map_features.shape[1] is already padded to 160
-
-
-        # ===== Future information
-        agents_future_polys
-        agents_future_avail
+        # future_num_frames = agents_future_polys.shape[2] #TODO: add new param, since agents_future_polys.shape[2] is already padded to 20
+        max_num_vectors = map_features.shape[2]            #TODO: map_features.shape[1] is already padded to 160
+        # max_num_vectors = self._feature_params.past_time_steps + 1 + self._feature_params.future_time_steps # 21
+        
+        # adapt future
+        # agents_past_polys_sum_past_t = agents_past_polys[:, :, -1, :] - agents_past_polys[:, :, -1, :].unsqueeze(dim=2)   # [batch_size, num_agents]
+        # agents_future_polys += agents_past_polys_sum_past_t
 
         # Combine past and future agent information.
         # Future information is ordered [T+1, T+2, ...], past information [T, T-1, T-2, ...].
@@ -679,11 +712,13 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         agents_polys = torch.cat([torch.flip(agents_past_polys, [2]), agents_future_polys], dim=2)
         agents_avail = torch.cat([torch.flip(agents_past_avail.contiguous(), [2]), agents_future_avail], dim=2)
         
-        features_now = torch.cat([agents_past_polys, map_features], dim=1)
-        avails = torch.cat([agents_past_avail, map_avails], dim=1)
+        ego_full = agents_polys[:, 0, :, :]
         
-        window_size = agents_past_polys.shape[2]            #TODO: agents_past_polys.shape[2] is already 20
-        current_timestep = agents_past_polys.shape[2] - 1   #TODO: agents_past_polys.shape[2] - 1 is already 19
+        # features_now = torch.cat([agents_past_polys, map_features], dim=1)
+        # avails = torch.cat([agents_past_avail, map_avails], dim=1)
+        
+        window_size = self._feature_params.past_time_steps + 1
+        current_timestep = self._feature_params.past_time_steps
 
         outputs_ts = []  # buffer for predictions in local spaces
         gts_ts = []  # buffer for gts in local spaces
@@ -698,7 +733,7 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             self._feature_params.agent_features,
             self._feature_params.map_features,
             self._feature_params.max_elements,
-            device=features_now.device,
+            device=agents_polys.device,
         ).transpose(0, 1)
 
         # one = torch.ones_like(data_batch["target_yaws"][:, 0])
@@ -725,21 +760,18 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         yaw_t0_from_ts = zero
         yaw_ts_from_t0 = zero
 
-        for idx in range(future_num_frames):
+        for idx in range(self._feature_params.future_time_steps):
             # === STEP FORWARD ====
-            # pick the right point in time
-            agents_polys_step = torch.flip(agents_polys[:, :, current_timestep - window_size + 1: current_timestep + 1], [2]).clone() # [16, 31, 20, 8]
-            agent_avails_step = torch.flip(agents_avail[:, :, current_timestep - window_size + 1: current_timestep + 1].contiguous(), [2]).clone() # [16, 31, 20, 8]
+            # pick the right point in time [T, T-1, T-2, T-3, T-4] for window_size = 5
+            agents_polys_step = torch.flip(agents_polys[:, :, current_timestep - window_size + 1: current_timestep + 1], [2]).clone() # [16, 31, 5, 3]
+            agent_avails_step = torch.flip(agents_avail[:, :, current_timestep - window_size + 1: current_timestep + 1].contiguous(), [2]).clone() # [16, 31, 5, 3]
             # PAD
-            # agents_polys_step = pad_points(agents_polys_step, max_num_vectors)
-            # agent_avails_step = pad_avail(agent_avails_step, max_num_vectors)
+            agents_polys_step = pad_polylines_batch(agents_polys_step, max_num_vectors, dim=2)
+            agent_avails_step = pad_avails_batch(agent_avails_step, max_num_vectors, dim=2)
 
             # crop agents history accordingly
             # NOTE: before padding, agent_polys_step has a number of elements equal to:
-            # max_history_num_frames + 1 (where the +1 comes from T0, which is the 0-th element)
-            # so in general we want to add +1 to ensure we always keep T0
-            # in case of max_history_num_frames=0 we effectively leave only T0
-            # ego & agents
+            # maxagents_polys_step& agents
             agents_polys_step[:, 0, self._history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-_history_num_frames_ego-1, 3]
             agent_avails_step[:, 0, self._history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-ego_past_frames-1]
             # agents
@@ -747,7 +779,7 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             agent_avails_step[:, 1:, self._history_num_frames_agents + 1:] = 0 # [batch_size, max_num_vectors-agents_past_frames-1] = [16, 31, 20]
 
             # transform agents and maps into right coordinate system (ts)
-            agents_polys_step = transform_points(agents_polys_step, ts_from_t0, agent_avails_step, yaw_ts_from_t0) # [16, 31, 20, 3]
+            agent_features_step = transform_points(agents_polys_step, ts_from_t0, agent_avails_step, yaw_ts_from_t0) # [16, 31, 20, 3]
             map_avails_step = map_avails.clone() # [16, 160, 20]
             map_features_step = transform_points(map_features.clone(), ts_from_t0, map_avails_step) # [16, 160, 20, 3]
 
@@ -755,9 +787,6 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
 
             ######## self.model_call ########
             # get predictions and attention of the model
-            # Standardize inputs
-            agent_features_step = torch.cat([agents_polys_step[:, :1] / self.agent_std, agents_polys_step[:, 1:] / self.other_agent_std], dim=1)
-            map_features_step = map_features_step / self.other_agent_std
 
             features_step = torch.cat([agent_features_step, map_features_step], dim=1) # [16, 160+31, 20, 3]
             avails_step = torch.cat([agent_avails_step, map_avails_step], dim=1) # [16, 160+31, 20]
@@ -803,8 +832,6 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             pred_yaw_step = out[:, 0, 2:3] if not self._model_params.limit_predicted_yaw else 0.3 * torch.tanh(out[:, 0, 2:3])
 
             pred_xy_step_unnorm = pred_xy_step
-            if self.normalize_targets:
-                pred_xy_step_unnorm = pred_xy_step * self.xy_scale[0]
 
             # ==== SAVE PREDICTIONS & GT
             # (16 x 1 x 2) = (16 x 1 x 2) @ (16 x 2 x 2) + (16 x 1 x 2)
@@ -813,9 +840,6 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             ) + ts_from_t0[..., :2, -1:].transpose(1, 2)
             gt_xy_step_ts = gt_xy_step_ts[:, 0] # (16 x 2)
             gt_yaw_ts = (agents_future_polys[:, 0, idx, 2:3] + yaw_ts_from_t0) # (16 x 1) = (16 x 1) + (16 x 1)
-
-            if self.normalize_targets:
-                gt_xy_step_ts = gt_xy_step_ts / self.xy_scale[0]
 
             pred_xy_step_t0 = pred_xy_step_unnorm[:, None, :] @ t0_from_ts[..., :2, :2].transpose(1, 2) + t0_from_ts[
                 ..., :2, -1:
@@ -865,11 +889,20 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         targets = torch.stack(gts_ts, dim=1)
         attns = torch.cat(attns, dim=1)
         
-        pred = convert_predictions_to_trajectory(outputs_ts)
+        ts_pred = convert_predictions_to_trajectory(outputs_ts)
+        t0_pred = convert_predictions_to_trajectory(outputs_t0)
         goal = convert_predictions_to_trajectory(targets)
         
+        
+        # goal = convert_predictions_to_trajectory(torch.stack(future_ego_agent_features.ego)[:,:-1,:3])
+        # goal = convert_predictions_to_trajectory(ego_full)
+        # goal = convert_predictions_to_trajectory(agents_future_polys[:, 0, 2:, :])
+        # goal = convert_predictions_to_trajectory(agents_past_polys[:, 1, :, :])
+        # goal = convert_predictions_to_trajectory(torch.cat([torch.flip(agents_past_polys, [2]), agents_future_polys], dim=2)[:,0])
+        
         return {
-            "trajectory": Trajectory(data=pred),
+            "ts_traj": Trajectory(data=ts_pred),
+            "t0_traj": Trajectory(data=t0_pred),
             "target": Trajectory(data=goal),
         }
     

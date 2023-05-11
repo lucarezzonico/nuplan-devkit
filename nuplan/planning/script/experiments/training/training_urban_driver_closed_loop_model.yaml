@@ -8,12 +8,12 @@ defaults:
       - kinematic_history_generic_agent_augmentation
       - generic_agent_dropout_augmentation
   - override /objective:
-      - trajectory_weight_decay_imitation_objective
+      - closed_loop_trajectory_weight_decay_imitation_objective
   - override /splitter: nuplan
   - override /model: urban_driver_closed_loop_model
   - override /scenario_filter: training_scenarios
   - override /training_metric:
-      - avg_displacement_error
-      - avg_heading_error
-      - final_displacement_error
-      - final_heading_error
+      - closed_loop_avg_displacement_error
+      - closed_loop_avg_heading_error
+      - closed_loop_final_displacement_error
+      - closed_loop_final_heading_error
