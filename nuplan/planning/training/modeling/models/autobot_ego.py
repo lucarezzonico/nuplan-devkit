@@ -387,10 +387,11 @@ class AutoBotEgo(TorchModuleWrapper):
                                                  key_padding_mask=orig_road_segs_masks)[0] + mode_params_emb
         mode_probs = F.softmax(self.prob_predictor(mode_params_emb).squeeze(-1), dim=0).transpose(0, 1)
 
-        traj=self.converter.output_tensor_to_trajectory(out_dists, mode_probs)
+        trajs=self.converter.select_all_trajectories(out_dists, mode_probs)
+        traj=self.converter.select_best_trajectory(out_dists, mode_probs)
 
         # return  [c, T, B, 5], [B, c]
         # return out_dists, mode_probs
 
-        return {"trajectory": traj, "mode_probs": TensorTarget(data=mode_probs), "pred": TensorTarget(data=out_dists)}
+        return {"trajectory": traj, "trajectories": trajs, "mode_probs": TensorTarget(data=mode_probs), "pred": TensorTarget(data=out_dists)}
         # return {"trajectory": traj}

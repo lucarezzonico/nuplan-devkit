@@ -8,6 +8,7 @@ from nuplan.planning.training.modeling.objectives.scenario_weight_utils import e
 from nuplan.planning.training.modeling.types import FeaturesType, ScenarioListType, TargetsType
 from nuplan.planning.training.preprocessing.features.tensor_target import TensorTarget
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
 
 from nuplan.planning.training.modeling.objectives.autobots_train_helpers import nll_loss_multimodes, nll_loss_multimodes_joint
 from torch import Tensor

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List, cast
 
 import cv2
 import numpy as np
@@ -11,9 +11,11 @@ from nuplan.planning.training.preprocessing.features.agents import Agents
 from nuplan.planning.training.preprocessing.features.generic_agents import GenericAgents
 from nuplan.planning.training.preprocessing.features.raster import Raster
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
 from nuplan.planning.training.preprocessing.features.vector_map import VectorMap
 from nuplan.planning.training.preprocessing.features.vector_set_map import VectorSetMap
 
+import random
 
 class Color(Enum):
     """
@@ -27,7 +29,7 @@ class Color(Enum):
     TARGET_TRAJECTORY: Tuple[float, float, float] = (61, 160, 179)
     PREDICTED_TRAJECTORY: Tuple[float, float, float] = (158, 63, 120)
     BASELINE_PATHS: Tuple[float, float, float] = (210, 220, 220)
-
+    RANDOM: Tuple[float, float, float] = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
 
 def _draw_trajectory(
     image: npt.NDArray[np.uint8],
@@ -252,6 +254,56 @@ def get_raster_from_vector_map_with_agents(
         _draw_trajectory(image, target_trajectory, Color.TARGET_TRAJECTORY, pixel_size)
     if predicted_trajectory is not None:
         _draw_trajectory(image, predicted_trajectory, Color.PREDICTED_TRAJECTORY, pixel_size)
+
+    return image
+
+
+def get_raster_from_vector_map_with_agents_multimodal(
+    vector_map: Union[VectorMap, VectorSetMap],
+    agents: Union[Agents, GenericAgents],
+    target_trajectory: Optional[Trajectory] = None,
+    predicted_trajectories: Optional[Trajectories] = None,
+    pixel_size: float = 0.5,
+    bit_shift: int = 12,
+    radius: float = 50.0,
+    vehicle_parameters: VehicleParameters = get_pacifica_parameters(),
+) -> npt.NDArray[np.uint8]:
+    """
+    Create rasterized image from vector map and list of agents.
+
+    :param vector_map: Vector map/vector set map feature to visualize.
+    :param agents: Agents/GenericAgents feature to visualize.
+    :param target_trajectory: Target trajectory to visualize.
+    :param predicted_trajectories: List of predicted trajectories to visualize.
+    :param pixel_size: [m] Size of a pixel.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param radius: [m] Radius of raster.
+    :param vehicle_parameters: Parameters of the ego vehicle.
+    :return: Composed rasterized image.
+    """
+    # Raster size
+    size = int(2 * radius / pixel_size)
+
+    # Create map layers
+    map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size)
+    agents_raster = _create_agents_raster(agents, radius, size, bit_shift, pixel_size)
+    ego_raster = _create_ego_raster(vehicle_parameters, pixel_size, size)
+
+    # Compose and paint image
+    image: npt.NDArray[np.uint8] = np.full((size, size, 3), Color.BACKGROUND.value, dtype=np.uint8)
+    image[map_raster.nonzero()] = Color.BASELINE_PATHS.value
+    image[agents_raster.nonzero()] = Color.AGENTS.value
+    image[ego_raster.nonzero()] = Color.EGO.value
+
+    # Draw target trajectory
+    if target_trajectory is not None:
+        _draw_trajectory(image, target_trajectory, Color.TARGET_TRAJECTORY, pixel_size)
+
+    # Draw predicted trajectories
+    if predicted_trajectories is not None:
+        for predicted_trajectory in predicted_trajectories:
+            # Color.RANDOM.value = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+            _draw_trajectory(image, predicted_trajectory, Color.PREDICTED_TRAJECTORY, pixel_size)
 
     return image
 

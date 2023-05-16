@@ -1,5 +1,5 @@
 import random
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -9,6 +9,7 @@ import torch.utils.data
 
 from nuplan.planning.training.callbacks.utils.visualization_utils import (
     get_raster_from_vector_map_with_agents,
+    get_raster_from_vector_map_with_agents_multimodal,
     get_raster_with_trajectories_as_rgb,
 )
 from nuplan.planning.training.modeling.types import FeaturesType, TargetsType, move_features_type_to_device
@@ -17,6 +18,7 @@ from nuplan.planning.training.preprocessing.feature_collate import FeatureCollat
 from torchvision.utils import save_image
 import os
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
 
 class VisualizationCallback(pl.Callback):
     """
@@ -126,6 +128,7 @@ class VisualizationCallback(pl.Callback):
             'agents' in features or 'generic_agents' in features
         ):
             image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
+            image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name())
             # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions, pl_module.name())
         else:
             return
@@ -133,7 +136,8 @@ class VisualizationCallback(pl.Callback):
         tag = f'{prefix}_visualization_{batch_idx}'
         
         self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
-        # self._save_images(torch.from_numpy(expert_image_batch), tag, training_step, pl_module)
+        self._save_images(torch.from_numpy(image_batch_multimodal), "multimodal_"+tag, training_step, pl_module)
+        # self._save_images(torch.from_numpy(expert_image_batch), "expert_"+tag, training_step, pl_module)
 
         for logger in loggers:
             if isinstance(logger, torch.utils.tensorboard.writer.SummaryWriter):
@@ -206,6 +210,9 @@ class VisualizationCallback(pl.Callback):
         if model_name == 'UrbanDriverClosedLoopModel':
             target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions['t0_traj'].unpack()
+        elif model_name == 'SafePathNetModel':
+            target_traj = targets['trajectory'].unpack()
+            predicted_traj = predictions["trajectories"].data[0]
         else:
             target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions['trajectory'].unpack()
@@ -221,6 +228,65 @@ class VisualizationCallback(pl.Callback):
                 agents,
                 target_trajectory,
                 predicted_trajectory,
+                pixel_size=self.pixel_size,
+            )
+
+            images.append(image)
+
+        return np.asarray(images)
+    
+    def _get_images_from_vector_features_multimodal(
+        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str
+    ) -> npt.NDArray[np.uint8]:
+        """
+        Create a list of RGB raster images from a batch of model data of vectormap and agent features.
+
+        :param features: tensor of model features
+        :param targets: tensor of model targets
+        :param predictions: tensor of model predictions
+        :return: list of raster images
+        """
+        images = list()
+        vector_map_feature = 'vector_map' if 'vector_map' in features else 'vector_set_map'
+        agents_feature = 'agents' if 'agents' in features else 'generic_agents'
+        
+        predicted_trajs = []
+        if model_name == 'UrbanDriverClosedLoopModel':
+            target_traj = targets['trajectory'].unpack()
+            predicted_trajs = predictions['t0_traj'].unpack()
+        elif model_name == 'SafePathNetModel':
+            target_traj = targets['trajectory'].unpack()
+            predicted_trajs = predictions["trajectories"].unpack()
+        elif model_name == 'AutoBotEgo':
+            target_traj = targets['trajectory'].unpack()
+            
+            # _, sorted_indices = torch.sort(predictions["mode_probs"].data, dim=1)
+            # # for each batch, pick the trajectory with largest probability
+            # trajs=torch.stack([predictions["pred"].data[sorted_indices[i],:,i,:] for i in range(predictions["pred"].data.shape[2])])
+            # trajs_3=trajs[:,:,:,:3]
+            # trajs_3[:,:,:,-1] = 0
+            
+            # ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
+            # predicted_trajs = [Trajectory(data=pred[:, 0]).unpack() for pred in ego_trajs] # ego trajs
+            
+            predicted_trajs = predictions["trajectories"].trajectories
+
+        else:
+            target_traj = targets['trajectory'].unpack()
+            for traj in predictions['trajectories']:
+                predicted_trajs.append(traj.unpack())
+
+        for vector_map, agents, target_trajectory, predicted_trajectories in zip(
+            features[vector_map_feature].unpack(),
+            features[agents_feature].unpack(),
+            target_traj,
+            predicted_trajs,
+        ):
+            image = get_raster_from_vector_map_with_agents_multimodal(
+                vector_map,
+                agents,
+                target_trajectory,
+                cast(Trajectories, predicted_trajectories.unpack()),
                 pixel_size=self.pixel_size,
             )
 

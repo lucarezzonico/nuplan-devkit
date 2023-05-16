@@ -10,6 +10,8 @@ from nuplan.planning.training.preprocessing.features.vector_map import VectorMap
 from nuplan.planning.training.preprocessing.features.agents import Agents
 
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
+
 
 import numpy as np
 
@@ -194,7 +196,7 @@ class NuplanToAutobotsConverter:
 
 
     @torch.jit.unused
-    def output_tensor_to_trajectory(self, pred_obs: Tensor, mode_probs: Tensor) -> Trajectory:
+    def select_best_trajectory(self, pred_obs: Tensor, mode_probs: Tensor) -> Trajectory:
         """select the trajectory with the largest probability for each batch of data
         Args:
             pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
@@ -203,7 +205,7 @@ class NuplanToAutobotsConverter:
 
         most_likely_idx=torch.argmax(mode_probs, 1)
         # for each batch, pick the trajectory with largest probability
-        trajs=torch.stack([pred_obs[most_likely_idx[i],:,i,:] for i in range(pred_obs.shape[2])])
+        trajs=torch.stack([pred_obs[most_likely_idx[i],:,i,:] for i in range(pred_obs.shape[2])])   # [8, 16, 6]
 
         trajs_3=trajs[:,:,:3]
 
@@ -215,3 +217,22 @@ class NuplanToAutobotsConverter:
         # trajs_3[:,-1,2] = trajs_3[:,-2,2]
 
         return Trajectory(data=trajs_3)
+
+
+    @torch.jit.unused
+    def select_all_trajectories(self, pred_obs: Tensor, mode_probs: Tensor) -> Trajectories:
+        """select the trajectory with the largest probability for each batch of data
+        Args:
+            pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
+            mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
+        """
+        _, sorted_indices = torch.sort(mode_probs, dim=1, descending=True)
+        # for each batch, pick the trajectory with largest probability
+        trajs=torch.stack([pred_obs[sorted_indices[i],:,i,:] for i in range(pred_obs.shape[2])], dim=1)    # [8, 6, 16, 6]
+        trajs_3=trajs[:,:,:,:3]
+        trajs_3[:,:,:,-1] = 0
+        
+        ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
+        predicted_trajs = [Trajectory(data=pred[:, 0]) for pred in ego_trajs] # ego trajs
+        
+        return Trajectories(trajectories=predicted_trajs)
