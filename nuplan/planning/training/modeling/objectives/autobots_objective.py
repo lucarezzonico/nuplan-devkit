@@ -52,6 +52,9 @@ class AutobotsObjective(AbstractObjective):
         pred_obs = cast(TensorTarget, predictions["pred"]).data
         mode_probs = cast(TensorTarget, predictions["mode_probs"]).data
         targets_xy = cast(Trajectory, targets["trajectory"]).data
+        
+        predicted_trajectories = cast(Trajectories, predictions["trajectories"]).trajectories
+
 
 
         nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
