@@ -243,6 +243,9 @@ class AutoBotEgo(TorchModuleWrapper):
         self.prob_predictor = init_(nn.Linear(self.d_k, 1))
 
         self.train()
+        
+    def name(self) -> str:
+        return self.__class__.__name__
 
     def generate_decoder_mask(self, seq_len, device):
         ''' For masking out the subsequent info. '''
