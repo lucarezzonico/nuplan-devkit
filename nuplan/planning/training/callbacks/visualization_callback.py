@@ -128,7 +128,8 @@ class VisualizationCallback(pl.Callback):
             'agents' in features or 'generic_agents' in features
         ):
             image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
-            image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name())
+            image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name(),
+                                                                                      all_agents=True, all_trajectories=False)
             # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions, pl_module.name())
         else:
             return
@@ -212,7 +213,7 @@ class VisualizationCallback(pl.Callback):
             predicted_traj = predictions['t0_traj'].unpack()
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
-            predicted_traj = predictions["trajectories"].data[0]
+            predicted_traj = predictions["trajectories"].trajectories[0].unpack()
         else:
             target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions['trajectory'].unpack()
@@ -236,7 +237,7 @@ class VisualizationCallback(pl.Callback):
         return np.asarray(images)
     
     def _get_images_from_vector_features_multimodal(
-        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str
+        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str, all_agents=True, all_trajectories=True
     ) -> npt.NDArray[np.uint8]:
         """
         Create a list of RGB raster images from a batch of model data of vectormap and agent features.
@@ -256,7 +257,12 @@ class VisualizationCallback(pl.Callback):
             predicted_trajs = predictions['t0_traj'].unpack()
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
-            predicted_trajs = predictions["trajectories"].unpack()
+            # predicted_trajs = predictions["trajectories"].unpack()
+            predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0))
+            predicted_trajs = [self.compute_trajectories(batch_tensors.squeeze(dim=0), all_agents=all_agents, all_trajectories=all_trajectories)
+                               for batch_tensors in predicted_tensors]
+            
+            # pred_multimodal_trajectories = Trajectories([t for traj in pred_multimodal_trajectories.trajectories for t in traj.unpack() for i in t.unpack()])
         elif model_name == 'AutoBotEgo':
             target_traj = targets['trajectory'].unpack()
             
@@ -269,8 +275,8 @@ class VisualizationCallback(pl.Callback):
             # ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
             # predicted_trajs = [Trajectory(data=pred[:, 0]).unpack() for pred in ego_trajs] # ego trajs
             
-            predicted_trajs = predictions["trajectories"].trajectories
-
+            predicted_trajs = predictions["trajectories"].unpack()
+            
         else:
             target_traj = targets['trajectory'].unpack()
             for traj in predictions['trajectories']:
@@ -282,11 +288,16 @@ class VisualizationCallback(pl.Callback):
             target_traj,
             predicted_trajs,
         ):
+            # if model_name == 'SafePathNetModel':
+            #     predicted_trajectories = Trajectories([Trajectory(predicted_trajectories.squeeze(dim=0)[a,b,:,:].unsqueeze(dim=0))
+            #                                            for a in range(predicted_trajectories.squeeze(dim=0).shape[0])
+            #                                            for b in range(predicted_trajectories.squeeze(dim=0).shape[1])])
+
             image = get_raster_from_vector_map_with_agents_multimodal(
                 vector_map,
                 agents,
                 target_trajectory,
-                cast(Trajectories, predicted_trajectories.unpack()),
+                predicted_trajectories,
                 pixel_size=self.pixel_size,
             )
 
@@ -403,3 +414,25 @@ class VisualizationCallback(pl.Callback):
             trainer.global_step,
             'val',
         )
+
+    def compute_trajectories(
+        self,
+        predicted_batch: torch.Tensor,
+        all_agents: bool = False,
+        all_trajectories: bool = False,
+    ) -> Trajectories:
+        _, _, num_points, num_features = predicted_batch.size()
+        
+        # create agents and mutimodal trajectories mask
+        agent_mask = torch.ones_like(predicted_batch)
+        if not all_agents: agent_mask[1:, :, :, :] *= 0
+        traj_mask = torch.ones_like(predicted_batch)
+        if not all_trajectories: traj_mask[:, 1:, :, :] *= 0
+        agent_traj_mask = torch.mul(agent_mask, traj_mask)
+        agent_traj_mask_bool = agent_traj_mask.bool()
+        
+        trajs = predicted_batch[agent_traj_mask_bool].view(-1, num_points, num_features)
+        
+        pred_trajs = Trajectories(Trajectory(trajs).unpack())
+        
+        return pred_trajs

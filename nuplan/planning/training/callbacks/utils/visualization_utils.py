@@ -301,7 +301,7 @@ def get_raster_from_vector_map_with_agents_multimodal(
 
     # Draw predicted trajectories
     if predicted_trajectories is not None:
-        for predicted_trajectory in predicted_trajectories:
+        for predicted_trajectory in predicted_trajectories.trajectories:
             # Color.RANDOM.value = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
             _draw_trajectory(image, predicted_trajectory, Color.PREDICTED_TRAJECTORY, pixel_size)
 
