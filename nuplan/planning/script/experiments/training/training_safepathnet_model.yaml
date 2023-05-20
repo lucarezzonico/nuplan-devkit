@@ -1,0 +1,19 @@
+# @package _global_
+job_name: safepathnet_model
+py_func: train
+objective_aggregate_mode: mean
+
+defaults:
+  - override /data_augmentation:
+      - kinematic_history_generic_agent_augmentation
+      - generic_agent_dropout_augmentation
+  - override /objective:
+      - safe_trajectory_weight_decay_imitation_objective
+  - override /splitter: nuplan
+  - override /model: safepathnet_model
+  - override /scenario_filter: training_scenarios
+  - override /training_metric:
+      - safe_avg_displacement_error
+      - safe_avg_heading_error
+      - safe_final_displacement_error
+      - safe_final_heading_error

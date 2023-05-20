@@ -1,0 +1,96 @@
+_target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModel
+_convert_: 'all'
+
+# Model setup
+# Internal model parameters
+model_params:
+  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelParams
+  _convert_: 'all'
+  local_embedding_size: 128
+  global_embedding_size: 256
+  feedforward_embedding_size: 1024
+  num_encoder_layers: 3
+  num_decoder_layers: 3
+  num_subgraph_layers: 3
+  global_head_dropout: 0.0
+  ## Closed-loop specific properties
+  detach_unroll: True # if to detach between steps when training with unroll
+  warmup_num_frames: 5 # "sample" warmup_num_steps by following the model's policy
+  discount_factor: 0.8 # discount future timesteps via discount_factor**t
+  limit_predicted_yaw: True
+  ## SafePathNet
+  agent_num_trajectories: 6
+  use_perturbation: False
+  perturbation_probability: 1.0
+  use_gaussian_perturbation: False
+  perturbation_min_displacement_m: 1.2
+  cost_prob_coeff: 0.1
+
+# Params for features
+feature_params:
+  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelFeatureParams
+  _convert_: 'all'
+  feature_types:
+    NONE: -1
+    EGO: 0
+    VEHICLE: 1
+    BICYCLE: 2
+    PEDESTRIAN: 3
+    LANE: 4
+    STOP_LINE: 5
+    CROSSWALK: 6
+    LEFT_BOUNDARY: 7
+    RIGHT_BOUNDARY: 8
+    ROUTE_LANES: 9
+  total_max_points: 16
+  past_time_steps: 4
+  future_time_steps: 16   # 20
+  feature_dimension: 3   # 8
+  history_num_frames_ego: 4
+  history_num_frames_agents: 4
+  # Agent features
+  agent_features: [VEHICLE]
+  ego_dimension: 3
+  agent_dimension: 8
+  max_agents: 50
+  past_trajectory_sampling:
+    _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
+    _convert_: 'all'
+    num_poses: 4      # target future poses
+    time_horizon: 1.5  # [s] time horizon of future poses
+  # Map features
+  map_features: [LANE, LEFT_BOUNDARY, RIGHT_BOUNDARY, STOP_LINE, CROSSWALK, ROUTE_LANES]
+  max_elements:
+    LANE: 30
+    LEFT_BOUNDARY: 30
+    RIGHT_BOUNDARY: 30
+    STOP_LINE: 20
+    CROSSWALK: 20
+    ROUTE_LANES: 30
+  max_points:
+    LANE: 20
+    LEFT_BOUNDARY: 20
+    RIGHT_BOUNDARY: 20
+    STOP_LINE: 20
+    CROSSWALK: 20
+    ROUTE_LANES: 20
+  vector_set_map_feature_radius: 35    # [m] The query radius scope relative to the current ego-pose.
+  interpolation_method: linear
+  disable_map: False
+  disable_agents: False
+# Params for targets
+target_params:
+  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelTargetParams
+  _convert_: 'all'
+  num_output_features: 3 # 48
+  # Parameters for predicted trajectory
+  future_trajectory_sampling:
+    _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
+    _convert_: 'all'
+    num_poses: 16      # target future poses
+    time_horizon: 8.0  # [s] time horizon of future poses
+  expert_trajectory_sampling:
+    _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
+    _convert_: 'all'
+    num_poses: 20      # target future poses
+    time_horizon: 10.0  # [s] time horizon of future poses
