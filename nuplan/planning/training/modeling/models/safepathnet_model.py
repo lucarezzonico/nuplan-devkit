@@ -713,7 +713,7 @@ class SafePathNetModel(TorchModuleWrapper):
         :return: targets: predictions from network
                         {
                             "ts_traj": Trajectory,
-                            "t0_traj": Trajectory,
+                            "trajectory": Trajectory,
                             "target": Trajectory,
                         }
         """
@@ -942,7 +942,7 @@ class SafePathNetModel(TorchModuleWrapper):
         
         return {
             "ts_traj": Trajectory(data=ts_pred),
-            "t0_traj": Trajectory(data=t0_pred),
+            "trajectory": Trajectory(data=t0_pred),
             "target": Trajectory(data=goal),
         }
 

@@ -210,7 +210,7 @@ class VisualizationCallback(pl.Callback):
         
         if model_name == 'UrbanDriverClosedLoopModel':
             target_traj = targets['trajectory'].unpack()
-            predicted_traj = predictions['t0_traj'].unpack()
+            predicted_traj = predictions['trajectory'].unpack()
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions["trajectories"].trajectories[0].unpack()
@@ -254,7 +254,7 @@ class VisualizationCallback(pl.Callback):
         predicted_trajs = []
         if model_name == 'UrbanDriverClosedLoopModel':
             target_traj = targets['trajectory'].unpack()
-            predicted_trajs = predictions['t0_traj'].unpack()
+            predicted_trajs = predictions['trajectory'].unpack()
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
             # predicted_trajs = predictions["trajectories"].unpack()
