@@ -56,7 +56,7 @@ class Tasks():
         override_list = [f'{k}={v}' for k, v in cfg.simulation_params.items()]
         override_list.extend([f'{k}={v}' for k, v in cfg.simulation_options.items()])
 
-        if cfg.planner == 'simple_planner':            
+        if cfg.planner == 'simple_planner':
             # Compose the configuration
             cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=override_list)
             
@@ -200,5 +200,6 @@ class Tasks():
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs("default_config_urban_driver_open_loop") # ["default_config_urban_driver_open_loop", "default_config_urban_autobot"]
+    cfgs = task.load_cfgs("default_config_urban_driver_closed_loop")
+    # [default_config_autobotego, default_config_urban_driver_open_loop, default_config_urban_driver_closed_loop, default_config_urban_autobot, default_config_safepathnet]
     task.main(cfgs)
