@@ -14,7 +14,7 @@ nb_workers: 8
 planner: ml_planner  # [simple_planner, ml_planner]
 challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
 scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
-nb_scenarios_per_type: 2 # use 10 scenarios per scenario type
+nb_scenarios_per_type: 5 # use 10 scenarios per scenario type
 scenario_types: [
   starting_left_turn,
   starting_right_turn,
@@ -61,7 +61,7 @@ save_dir_training: ${oc.env:NUPLAN_EXP_ROOT}/training
 save_dir_simulation: ${oc.env:NUPLAN_EXP_ROOT}/simulation
 experiment: ${model_name}_experiment
 model: ${model_name}_model
-log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model} # where to get trained model from
+log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model}  # where to get trained model from  # ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model}/2023.05.08.09.03.25_80000sc_13ep
 
 
 # for training override
