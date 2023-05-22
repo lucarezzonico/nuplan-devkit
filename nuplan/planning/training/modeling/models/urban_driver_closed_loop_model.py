@@ -884,10 +884,10 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
                 map_avails.detach_()
 
         # recombine predictions
-        outputs_ts = torch.stack(outputs_ts, dim=1)
-        outputs_t0 = torch.stack(outputs_t0, dim=1)
-        targets = torch.stack(gts_ts, dim=1)
-        attns = torch.cat(attns, dim=1)
+        outputs_ts = torch.stack(outputs_ts, dim=1) # [batch_size, future_num_frames, 3] = [12, 16, 3]
+        outputs_t0 = torch.stack(outputs_t0, dim=1) # [batch_size, future_num_frames, 3] = [12, 16, 3]
+        targets = torch.stack(gts_ts, dim=1)        # [batch_size, future_num_frames, 3] = [12, 16, 3]
+        attns = torch.cat(attns, dim=1)             # [batch_size, future_num_frames, 81] = [12, 12, 81]
         
         ts_pred = convert_predictions_to_trajectory(outputs_ts)
         t0_pred = convert_predictions_to_trajectory(outputs_t0)

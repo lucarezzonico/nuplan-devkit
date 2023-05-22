@@ -38,7 +38,8 @@ class AverageDisplacementError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["trajectories"].trajectories[0]
+        # predictions["trajectories"].data # [8, 50, 6, 16, 3]
+        predicted_trajectory: Trajectory = Trajectory(predictions["trajectories"].data[:,0,0,:,:]) # [8, 50, 6, 16, 3]
         targets_trajectory: Trajectory = targets['trajectory']
 
         return torch.norm(predicted_trajectory.xy - targets_trajectory.xy, dim=-1).mean()
@@ -75,7 +76,8 @@ class FinalDisplacementError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["trajectories"].trajectories[0]
+        # predictions["trajectories"].data # [8, 50, 6, 16, 3]
+        predicted_trajectory: Trajectory = Trajectory(predictions["trajectories"].data[:,0,0,:,:]) # [8, 50, 6, 16, 3]
         targets_trajectory: Trajectory = targets['trajectory']
 
         return torch.norm(predicted_trajectory.terminal_position - targets_trajectory.terminal_position, dim=-1).mean()
@@ -112,7 +114,8 @@ class AverageHeadingError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["trajectories"].trajectories[0]
+        # predictions["trajectories"].data # [8, 50, 6, 16, 3]
+        predicted_trajectory: Trajectory = Trajectory(predictions["trajectories"].data[:,0,0,:,:]) # [8, 50, 6, 16, 3]
         targets_trajectory: Trajectory = targets['trajectory']
 
         errors = torch.abs(predicted_trajectory.heading - targets_trajectory.heading)
@@ -150,7 +153,8 @@ class FinalHeadingError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["trajectories"].trajectories[0]
+        # predictions["trajectories"].data # [8, 50, 6, 16, 3]
+        predicted_trajectory: Trajectory = Trajectory(predictions["trajectories"].data[:,0,0,:,:]) # [8, 50, 6, 16, 3]
         targets_trajectory: Trajectory = targets['trajectory']
 
         errors = torch.abs(predicted_trajectory.terminal_heading - targets_trajectory.terminal_heading)

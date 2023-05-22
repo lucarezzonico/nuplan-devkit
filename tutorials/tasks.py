@@ -200,6 +200,6 @@ class Tasks():
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs("default_config_urban_driver_closed_loop")
+    cfgs = task.load_cfgs("default_config_safepathnet")
     # [default_config_autobotego, default_config_urban_driver_open_loop, default_config_urban_driver_closed_loop, default_config_urban_autobot, default_config_safepathnet]
     task.main(cfgs)

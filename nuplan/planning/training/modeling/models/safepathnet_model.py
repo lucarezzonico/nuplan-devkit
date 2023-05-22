@@ -1151,15 +1151,16 @@ class SafePathNetModel(TorchModuleWrapper):
             index=pred_traj_index_expanded.expand(([-1, -1, -1] + list(all_pred_agents_yaw.shape[-2:])))).squeeze(2)
 
         # self.plot_attention_weights(attn_weights=attns)
-
-        predicted_trajs = list(pred_agents.chunk(pred_agents.size(2), dim=2))
-        ego_trajs = [Trajectory(data=convert_predictions_to_trajectory(pred[:, 0])) for pred in predicted_trajs] # ego trajs
+        
+        sorted_pred_trajs = self.sort_predictions(pred_agents, pred_traj_logits)
+        # predicted_trajs = list(pred_agents.chunk(pred_agents.size(2), dim=2))
+        # ego_trajs = [Trajectory(data=convert_predictions_to_trajectory(pred[:, 0])) for pred in predicted_trajs] # 6 ego trajs
 
         all_pred_agents = torch.cat([all_pred_agents_xy, all_pred_agents_yaw], dim=-1)
         all_pred_agents = self.sort_predictions(all_pred_agents, pred_traj_logits)
         
         return {
-            "trajectories": Trajectories(ego_trajs),
+            "trajectories": TensorTarget(sorted_pred_trajs),    # [8, 50, 6, 16, 3] # ego_trajs = [6][8, 16, 3]
             "pred_agents": TensorTarget(pred_agents),           # [8, 50, 6, 16, 3]
             "pred_traj_logits": TensorTarget(pred_traj_logits), # [8, 50, 6]
             "target": TensorTarget(target),                     # [8, 50, 6, 16, 3]
