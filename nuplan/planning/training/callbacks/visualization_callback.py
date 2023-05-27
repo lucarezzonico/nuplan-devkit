@@ -128,8 +128,10 @@ class VisualizationCallback(pl.Callback):
             'agents' in features or 'generic_agents' in features
         ):
             image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
-            image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name(),
-                                                                                      all_agents=True, all_trajectories=False)
+            
+            if pl_module.name() in ["AutoBotEgo", "SafePathNetModel"]:
+                image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name(),
+                                                                                          all_agents=True, all_trajectories=False)
             # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions, pl_module.name())
         else:
             return
@@ -137,7 +139,9 @@ class VisualizationCallback(pl.Callback):
         tag = f'{prefix}_visualization_{batch_idx}'
         
         self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
-        self._save_images(torch.from_numpy(image_batch_multimodal), "multimodal_"+tag, training_step, pl_module)
+        
+        if pl_module.name() in ["AutoBotEgo", "SafePathNetModel"]:
+            self._save_images(torch.from_numpy(image_batch_multimodal), "multimodal_"+tag, training_step, pl_module)
         # self._save_images(torch.from_numpy(expert_image_batch), "expert_"+tag, training_step, pl_module)
 
         for logger in loggers:
@@ -213,7 +217,10 @@ class VisualizationCallback(pl.Callback):
             predicted_traj = predictions['trajectory'].unpack()
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
-            predicted_traj = predictions["trajectories"].trajectories[0].unpack()
+            # predictions["target"].data # [8, 50, 6, 16, 3]
+            # target_traj = Trajectory(predictions["target"].data[:,0,0,:,:]).unpack() # [8, 16, 3]
+            # predictions["trajectories"].data # [8, 50, 6, 16, 3]
+            predicted_traj = Trajectory(predictions["trajectories"].data[:,0,0,:,:]).unpack() # [8, 16, 3]
         else:
             target_traj = targets['trajectory'].unpack()
             predicted_traj = predictions['trajectory'].unpack()
@@ -230,6 +237,7 @@ class VisualizationCallback(pl.Callback):
                 target_trajectory,
                 predicted_trajectory,
                 pixel_size=self.pixel_size,
+                vector_map_feature=vector_map_feature
             )
 
             images.append(image)
@@ -258,6 +266,7 @@ class VisualizationCallback(pl.Callback):
         elif model_name == 'SafePathNetModel':
             target_traj = targets['trajectory'].unpack()
             # predicted_trajs = predictions["trajectories"].unpack()
+            # predicted_tensors = list(predictions["target"].data[:,:,:,:5,:].chunk(predictions["target"].data[:,:,:,:5,:].size(0), dim=0)) # to plot all agents targets/pasts
             predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0))
             predicted_trajs = [self.compute_trajectories(batch_tensors.squeeze(dim=0), all_agents=all_agents, all_trajectories=all_trajectories)
                                for batch_tensors in predicted_tensors]
@@ -299,6 +308,7 @@ class VisualizationCallback(pl.Callback):
                 target_trajectory,
                 predicted_trajectories,
                 pixel_size=self.pixel_size,
+                vector_map_feature=vector_map_feature
             )
 
             images.append(image)
@@ -342,6 +352,7 @@ class VisualizationCallback(pl.Callback):
                 target_trajectory,
                 expert,
                 pixel_size=self.pixel_size,
+                vector_map_feature=vector_map_feature,
             )
 
             images.append(image)
