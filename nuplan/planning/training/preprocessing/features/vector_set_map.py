@@ -213,6 +213,61 @@ class VectorSetMap(AbstractModelFeature):
         if lane_coords.size == 0:
             raise RuntimeError("Lane feature is empty!")
         return lane_coords
+    
+    def get_left_boundary_coords(self, sample_idx: int) -> FeatureDataType:
+        """
+        Retrieve left boundary coordinates at given sample index.
+        :param sample_idx: the batch index of interest.
+        :return: left boundary coordinate features.
+        """
+        left_boundary = self.coords[VectorFeatureLayer.LEFT_BOUNDARY.name][sample_idx]
+        if left_boundary.size == 0:
+            raise RuntimeError("Left Boundary feature is empty!")
+        return left_boundary
+    
+    def get_right_boundary_coords(self, sample_idx: int) -> FeatureDataType:
+        """
+        Retrieve right boundary coordinates at given sample index.
+        :param sample_idx: the batch index of interest.
+        :return: right boundary coordinate features.
+        """
+        right_boundary = self.coords[VectorFeatureLayer.RIGHT_BOUNDARY.name][sample_idx]
+        if right_boundary.size == 0:
+            raise RuntimeError("Right Boundary feature is empty!")
+        return right_boundary
+    
+    def get_route_lanes_coords(self, sample_idx: int) -> FeatureDataType:
+        """
+        Retrieve route lanes coordinates at given sample index.
+        :param sample_idx: the batch index of interest.
+        :return: route lanes coordinate features.
+        """
+        route_lanes_coords = self.coords[VectorFeatureLayer.ROUTE_LANES.name][sample_idx]
+        if route_lanes_coords.size == 0:
+            raise RuntimeError("Route Lanes feature is empty!")
+        return route_lanes_coords
+    
+    def get_crosswalk_coords(self, sample_idx: int) -> FeatureDataType:
+        """
+        Retrieve crosswalk coordinates at given sample index.
+        :param sample_idx: the batch index of interest.
+        :return: crosswalk coordinate features.
+        """
+        crosswalk = self.coords[VectorFeatureLayer.CROSSWALK.name][sample_idx]
+        if crosswalk.size == 0:
+            raise RuntimeError("Crosswalk feature is empty!")
+        return crosswalk
+    
+    def get_stopline_coords(self, sample_idx: int) -> FeatureDataType:
+        """
+        Retrieve stopline coordinates at given sample index.
+        :param sample_idx: the batch index of interest.
+        :return: stopline coordinate features.
+        """
+        stopline = self.coords[VectorFeatureLayer.STOP_LINE.name][sample_idx]
+        if stopline.size == 0:
+            raise RuntimeError("Stopline feature is empty!")
+        return stopline
 
     @classmethod
     def collate(cls, batch: List[VectorSetMap]) -> VectorSetMap:

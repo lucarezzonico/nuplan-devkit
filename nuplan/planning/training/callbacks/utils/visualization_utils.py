@@ -15,6 +15,7 @@ from nuplan.planning.training.preprocessing.features.trajectories import Traject
 from nuplan.planning.training.preprocessing.features.vector_map import VectorMap
 from nuplan.planning.training.preprocessing.features.vector_set_map import VectorSetMap
 
+import torch
 import random
 
 class Color(Enum):
@@ -29,6 +30,10 @@ class Color(Enum):
     TARGET_TRAJECTORY: Tuple[float, float, float] = (61, 160, 179)
     PREDICTED_TRAJECTORY: Tuple[float, float, float] = (158, 63, 120)
     BASELINE_PATHS: Tuple[float, float, float] = (210, 220, 220)
+    RED: Tuple[float, float, float] = (255, 0, 0)
+    BLUE: Tuple[float, float, float] = (0, 0, 255)
+    YELLOW: Tuple[float, float, float] = (255, 255, 0)
+    GREEN: Tuple[float, float, float] = (0, 255, 0)
     RANDOM: Tuple[float, float, float] = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
 
 def _draw_trajectory(
@@ -119,11 +124,328 @@ def _create_map_raster(
         shift=bit_shift,
         lineType=cv2.LINE_AA,
     )
-
+    
+    # shifted_index_coords_tensor = torch.Tensor(shifted_index_coords).view(-1, shifted_index_coords.shape[-1])
+    # for i in range(shifted_index_coords_tensor.size(0)):
+    #     cv2.drawMarker(
+    #         map_raster,
+    #         tuple(shifted_index_coords_tensor[i].numpy()),
+    #         color=color,
+    #         markerType=cv2.MARKER_CROSS,
+    #         markerSize=10,
+    #         thickness=5,
+    #         line_type=cv2.LINE_AA
+    #     )
+    #     cv2.circle(map_raster, tuple(shifted_index_coords_tensor[i].numpy()), radius=10, color=color, thickness=5)
+    
     # Flip grid upside down
     map_raster = np.flipud(map_raster)
 
     return map_raster
+
+def _create_left_boundary_raster(
+    vector_map: Union[VectorMap, VectorSetMap],
+    radius: float,
+    size: int,
+    bit_shift: int,
+    pixel_size: float,
+    color: int = 1,
+    thickness: int = 2,
+) -> npt.NDArray[np.uint8]:
+    """
+    Create vector map raster layer to be visualized.
+
+    :param vector_map: Vector map feature object.
+    :param radius: [m] Radius of grid.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param pixel_size: [m] Size of each pixel.
+    :param size: [pixels] Size of grid.
+    :param color: Grid color.
+    :param thickness: Map lane/baseline thickness.
+    :return: Instantiated grid.
+    """
+    # # Extract coordinates from vector map feature
+    vector_coords = vector_map.get_left_boundary_coords(0)
+    # Align coordinates to map and clip them based on radius
+    num_elements, num_points, _ = vector_coords.shape
+    map_ortho_align = Rotation.from_euler('z', 90, degrees=True).as_matrix().astype(np.float32)
+    coords = vector_coords.reshape(num_elements * num_points, 2)
+    coords = np.concatenate((coords, np.zeros_like(coords[:, 0:1])), axis=-1)
+    coords = (map_ortho_align @ coords.T).T
+    coords = coords[:, :2].reshape(num_elements, num_points, 2)
+    coords[..., 0] = np.clip(coords[..., 0], -radius, radius)
+    coords[..., 1] = np.clip(coords[..., 1], -radius, radius)
+
+    # Instantiate grid
+    map_raster: npt.NDArray[np.uint8] = np.zeros((size, size), dtype=np.uint8)
+
+    # Convert coordinates to grid indices
+    index_coords = (radius + coords) / pixel_size
+    shifted_index_coords = (index_coords * 2**bit_shift).astype(np.int64)
+    
+    # Paint the grid
+    cv2.polylines(
+        map_raster,
+        shifted_index_coords,
+        isClosed=False,
+        color=color,
+        thickness=thickness,
+        shift=bit_shift,
+        lineType=cv2.LINE_AA,
+    )
+    
+    # Flip grid upside down
+    map_raster = np.flipud(map_raster)
+
+    return map_raster
+
+def _create_right_boundary_raster(
+    vector_map: Union[VectorMap, VectorSetMap],
+    radius: float,
+    size: int,
+    bit_shift: int,
+    pixel_size: float,
+    color: int = 1,
+    thickness: int = 2,
+) -> npt.NDArray[np.uint8]:
+    """
+    Create vector map raster layer to be visualized.
+
+    :param vector_map: Vector map feature object.
+    :param radius: [m] Radius of grid.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param pixel_size: [m] Size of each pixel.
+    :param size: [pixels] Size of grid.
+    :param color: Grid color.
+    :param thickness: Map lane/baseline thickness.
+    :return: Instantiated grid.
+    """
+    # # Extract coordinates from vector map feature
+    vector_coords = vector_map.get_right_boundary_coords(0)
+    # Align coordinates to map and clip them based on radius
+    num_elements, num_points, _ = vector_coords.shape
+    map_ortho_align = Rotation.from_euler('z', 90, degrees=True).as_matrix().astype(np.float32)
+    coords = vector_coords.reshape(num_elements * num_points, 2)
+    coords = np.concatenate((coords, np.zeros_like(coords[:, 0:1])), axis=-1)
+    coords = (map_ortho_align @ coords.T).T
+    coords = coords[:, :2].reshape(num_elements, num_points, 2)
+    coords[..., 0] = np.clip(coords[..., 0], -radius, radius)
+    coords[..., 1] = np.clip(coords[..., 1], -radius, radius)
+
+    # Instantiate grid
+    map_raster: npt.NDArray[np.uint8] = np.zeros((size, size), dtype=np.uint8)
+
+    # Convert coordinates to grid indices
+    index_coords = (radius + coords) / pixel_size
+    shifted_index_coords = (index_coords * 2**bit_shift).astype(np.int64)
+    
+    # Paint the grid
+    cv2.polylines(
+        map_raster,
+        shifted_index_coords,
+        isClosed=False,
+        color=color,
+        thickness=thickness,
+        shift=bit_shift,
+        lineType=cv2.LINE_AA,
+    )
+    
+    # Flip grid upside down
+    map_raster = np.flipud(map_raster)
+
+    return map_raster
+
+def _create_stopline_raster(
+    vector_map: Union[VectorMap, VectorSetMap],
+    radius: float,
+    size: int,
+    bit_shift: int,
+    pixel_size: float,
+    color: int = 1,
+    thickness: int = 2,
+) -> npt.NDArray[np.uint8]:
+    """
+    Create vector map raster layer to be visualized.
+
+    :param vector_map: Vector map feature object.
+    :param radius: [m] Radius of grid.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param pixel_size: [m] Size of each pixel.
+    :param size: [pixels] Size of grid.
+    :param color: Grid color.
+    :param thickness: Map lane/baseline thickness.
+    :return: Instantiated grid.
+    """
+    # # Extract coordinates from vector map feature
+    vector_coords = vector_map.get_stopline_coords(0)
+    # mask = vector_coords.any(axis=-1).unsqueeze(dim=-1).repeat(1,1,2)
+    
+    # Instantiate grid
+    map_raster: npt.NDArray[np.uint8] = np.zeros((size, size), dtype=np.uint8)
+    
+    # if mask.any():
+    #     vector_coords = vector_coords[mask].view(-1, int(mask.sum(dim=1).max()), vector_coords.shape[-1])
+            
+    # Align coordinates to map and clip them based on radius
+    num_elements, num_points, _ = vector_coords.shape
+    map_ortho_align = Rotation.from_euler('z', 90, degrees=True).as_matrix().astype(np.float32)
+    coords = vector_coords.reshape(num_elements * num_points, 2)
+    coords = np.concatenate((coords, np.zeros_like(coords[:, 0:1])), axis=-1)
+    coords = (map_ortho_align @ coords.T).T
+    coords = coords[:, :2].reshape(num_elements, num_points, 2)
+    coords[..., 0] = np.clip(coords[..., 0], -radius, radius)
+    coords[..., 1] = np.clip(coords[..., 1], -radius, radius)
+
+    # Convert coordinates to grid indices
+    index_coords = (radius + coords) / pixel_size
+    shifted_index_coords = (index_coords * 2**bit_shift).astype(np.int64)
+    
+    # Paint the grid
+    cv2.polylines(
+        map_raster,
+        shifted_index_coords,
+        isClosed=False,
+        color=color,
+        thickness=thickness,
+        shift=bit_shift,
+        lineType=cv2.LINE_AA,
+    )
+    
+    # Flip grid upside down
+    map_raster = np.flipud(map_raster)
+
+    return map_raster
+
+def _create_crosswalk_raster(
+    vector_map: Union[VectorMap, VectorSetMap],
+    radius: float,
+    size: int,
+    bit_shift: int,
+    pixel_size: float,
+    color: int = 1,
+    thickness: int = 2,
+) -> npt.NDArray[np.uint8]:
+    """
+    Create vector map raster layer to be visualized.
+
+    :param vector_map: Vector map feature object.
+    :param radius: [m] Radius of grid.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param pixel_size: [m] Size of each pixel.
+    :param size: [pixels] Size of grid.
+    :param color: Grid color.
+    :param thickness: Map lane/baseline thickness.
+    :return: Instantiated grid.
+    """
+    # # Extract coordinates from vector map feature
+    vector_coords = vector_map.get_crosswalk_coords(0)
+    # mask = vector_coords.any(axis=-1).unsqueeze(dim=-1).repeat(1,1,2)
+    
+    # Instantiate grid
+    map_raster: npt.NDArray[np.uint8] = np.zeros((size, size), dtype=np.uint8)
+        
+    # if mask.any():
+        # vector_coords = vector_coords[mask].view(-1, int(mask.sum(dim=1).max()), vector_coords.shape[-1])
+    
+    # Align coordinates to map and clip them based on radius
+    num_elements, num_points, _ = vector_coords.shape
+    map_ortho_align = Rotation.from_euler('z', 90, degrees=True).as_matrix().astype(np.float32)
+    coords = vector_coords.reshape(num_elements * num_points, 2)
+    coords = np.concatenate((coords, np.zeros_like(coords[:, 0:1])), axis=-1)
+    coords = (map_ortho_align @ coords.T).T
+    coords = coords[:, :2].reshape(num_elements, num_points, 2)
+    coords[..., 0] = np.clip(coords[..., 0], -radius, radius)
+    coords[..., 1] = np.clip(coords[..., 1], -radius, radius)
+
+    # Convert coordinates to grid indices
+    index_coords = (radius + coords) / pixel_size
+    shifted_index_coords = (index_coords * 2**bit_shift).astype(np.int64)
+    
+    # Paint the grid
+    cv2.polylines(
+        map_raster,
+        shifted_index_coords,
+        isClosed=False,
+        color=color,
+        thickness=thickness,
+        shift=bit_shift,
+        lineType=cv2.LINE_AA,
+    )
+    
+    # Flip grid upside down
+    map_raster = np.flipud(map_raster)
+
+    return map_raster
+
+def _create_route_lanes_raster(
+    vector_map: Union[VectorMap, VectorSetMap],
+    radius: float,
+    size: int,
+    bit_shift: int,
+    pixel_size: float,
+    color: int = 1,
+    thickness: int = 2,
+) -> npt.NDArray[np.uint8]:
+    """
+    Create vector map raster layer to be visualized.
+
+    :param vector_map: Vector map feature object.
+    :param radius: [m] Radius of grid.
+    :param bit_shift: Bit shift when drawing or filling precise polylines/rectangles.
+    :param pixel_size: [m] Size of each pixel.
+    :param size: [pixels] Size of grid.
+    :param color: Grid color.
+    :param thickness: Map lane/baseline thickness.
+    :return: Instantiated grid.
+    """
+    # # Extract coordinates from vector map feature
+    vector_coords = vector_map.get_route_lanes_coords(0)
+    # vector_coords = vector_coords[:1]
+    # Align coordinates to map and clip them based on radius
+    num_elements, num_points, _ = vector_coords.shape
+    map_ortho_align = Rotation.from_euler('z', 90, degrees=True).as_matrix().astype(np.float32)
+    coords = vector_coords.reshape(num_elements * num_points, 2)
+    coords = np.concatenate((coords, np.zeros_like(coords[:, 0:1])), axis=-1)
+    coords = (map_ortho_align @ coords.T).T
+    coords = coords[:, :2].reshape(num_elements, num_points, 2)
+    coords[..., 0] = np.clip(coords[..., 0], -radius, radius)
+    coords[..., 1] = np.clip(coords[..., 1], -radius, radius)
+
+    # Instantiate grid
+    map_raster: npt.NDArray[np.uint8] = np.zeros((size, size), dtype=np.uint8)
+
+    # Convert coordinates to grid indices
+    index_coords = (radius + coords) / pixel_size
+    shifted_index_coords = (index_coords * 2**bit_shift).astype(np.int64)
+    
+    # Paint the grid
+    cv2.polylines(
+        map_raster,
+        shifted_index_coords,
+        isClosed=False,
+        color=color,
+        thickness=thickness,
+        shift=bit_shift,
+        lineType=cv2.LINE_AA,
+    )
+    
+    _create_point_markers(map_raster, index_coords, color=color)
+    
+    # Flip grid upside down
+    map_raster = np.flipud(map_raster)
+
+    return map_raster
+
+def _create_point_markers(
+    map_raster: npt.NDArray[np.uint8],
+    polylines,
+    color: int = 1,
+) -> None:
+    
+    polylines = torch.Tensor(polylines).view(-1, polylines.shape[-1])
+    for i in range(0, polylines.size(0)):
+        # cv2.drawMarker(map_raster, tuple(polylines[i].numpy()), color=color, markerType=cv2.MARKER_CROSS, markerSize=10, thickness=3, line_type=cv2.LINE_AA)
+        cv2.circle(map_raster, tuple(polylines[i].numpy()), radius=6, color=color, thickness=2)
 
 
 def _create_agents_raster(
@@ -221,6 +543,7 @@ def get_raster_from_vector_map_with_agents(
     bit_shift: int = 12,
     radius: float = 50.0,
     vehicle_parameters: VehicleParameters = get_pacifica_parameters(),
+    vector_map_feature: str = None,
 ) -> npt.NDArray[np.uint8]:
     """
     Create rasterized image from vector map and list of agents.
@@ -239,13 +562,25 @@ def get_raster_from_vector_map_with_agents(
     size = int(2 * radius / pixel_size)
 
     # Create map layers
-    map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size)
+    map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=3)
+    if vector_map_feature == 'vector_set_map':
+        # left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
     agents_raster = _create_agents_raster(agents, radius, size, bit_shift, pixel_size)
     ego_raster = _create_ego_raster(vehicle_parameters, pixel_size, size)
 
     # Compose and paint image
     image: npt.NDArray[np.uint8] = np.full((size, size, 3), Color.BACKGROUND.value, dtype=np.uint8)
     image[map_raster.nonzero()] = Color.BASELINE_PATHS.value
+    if vector_map_feature == 'vector_set_map':
+        # image[left_boundary_raster.nonzero()] = Color.BLUE.value
+        # image[right_boundary_raster.nonzero()] = Color.BLUE.value
+        # image[stopline_raster.nonzero()] = Color.RED.value
+        # image[crosswalk_raster.nonzero()] = Color.YELLOW.value
+        image[route_lanes_raster.nonzero()] = Color.GREEN.value
     image[agents_raster.nonzero()] = Color.AGENTS.value
     image[ego_raster.nonzero()] = Color.EGO.value
 
@@ -267,6 +602,7 @@ def get_raster_from_vector_map_with_agents_multimodal(
     bit_shift: int = 12,
     radius: float = 50.0,
     vehicle_parameters: VehicleParameters = get_pacifica_parameters(),
+    vector_map_feature: str = None,
 ) -> npt.NDArray[np.uint8]:
     """
     Create rasterized image from vector map and list of agents.
@@ -285,13 +621,25 @@ def get_raster_from_vector_map_with_agents_multimodal(
     size = int(2 * radius / pixel_size)
 
     # Create map layers
-    map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size)
+    map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=3)
+    if vector_map_feature == 'vector_set_map':
+        # left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        # crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+        route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
     agents_raster = _create_agents_raster(agents, radius, size, bit_shift, pixel_size)
     ego_raster = _create_ego_raster(vehicle_parameters, pixel_size, size)
 
     # Compose and paint image
     image: npt.NDArray[np.uint8] = np.full((size, size, 3), Color.BACKGROUND.value, dtype=np.uint8)
     image[map_raster.nonzero()] = Color.BASELINE_PATHS.value
+    if vector_map_feature == 'vector_set_map':
+        # image[left_boundary_raster.nonzero()] = Color.BLUE.value
+        # image[right_boundary_raster.nonzero()] = Color.BLUE.value
+        # image[stopline_raster.nonzero()] = Color.RED.value
+        # image[crosswalk_raster.nonzero()] = Color.YELLOW.value
+        image[route_lanes_raster.nonzero()] = Color.GREEN.value
     image[agents_raster.nonzero()] = Color.AGENTS.value
     image[ego_raster.nonzero()] = Color.EGO.value
 
@@ -303,7 +651,8 @@ def get_raster_from_vector_map_with_agents_multimodal(
     if predicted_trajectories is not None:
         for predicted_trajectory in predicted_trajectories.trajectories:
             # Color.RANDOM.value = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-            _draw_trajectory(image, predicted_trajectory, Color.PREDICTED_TRAJECTORY, pixel_size)
+            if predicted_trajectory.data.any():
+                _draw_trajectory(image, predicted_trajectory, Color.PREDICTED_TRAJECTORY, pixel_size)
 
     return image
 
