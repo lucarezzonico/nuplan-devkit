@@ -1,4 +1,4 @@
-tasks: [simulate, open_nuboard] # [train, simulate, open_nuboard]
+tasks: [train] # [train, simulate, open_nuboard]
 model_name: autobotego # [vector, autobotego]
 
 # adapt training params
