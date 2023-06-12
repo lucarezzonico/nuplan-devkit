@@ -5,7 +5,7 @@ model_name: urban_driver_open_loop # [vector, autobotego]
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
 nb_scenarios: 500
-nb_epochs: 2
+nb_epochs: 1
 batch_size: 8
 lightning_accelerator: ddp_spawn
 nb_workers: 8
@@ -36,7 +36,7 @@ scenario_types: [
 
 training_options:
   optimizer: adamw
-  optimizer.lr: 2e-5
+  optimizer.lr: 2e-4
   # +optimizer.eps: 1e-4
   lr_scheduler: multistep_lr # [multistep_lr]
   lr_scheduler.milestones: [20, 40]

@@ -24,7 +24,6 @@ import numpy as np
 from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
 from nuplan.planning.training.modeling.models.urban_driver_open_loop_model_utils import (
     LocalSubGraph,
-    MultiheadAttentionGlobalHead,
     SinusoidalPositionalEmbedding,
     TypeEmbedding,
     pad_avails,
@@ -53,6 +52,7 @@ from nuplan.planning.training.preprocessing.target_builders.expert_trajectory_ta
 )
 
 from nuplan.planning.training.modeling.models.urban_driver_closed_loop_model_utils import (
+    MultiheadAttentionGlobalHead,
     transform_points,
     update_transformation_matrices,
     build_target_normalization
@@ -105,9 +105,12 @@ class UrbanDriverClosedLoopModelFeatureParams:
     """
 
     feature_types: Dict[str, int]
+    total_max_points: int
     past_time_steps: int
     future_time_steps: int
     feature_dimension: int
+    history_num_frames_ego: int
+    history_num_frames_agents: int
     agent_features: List[str]
     ego_dimension: int
     agent_dimension: int
@@ -131,6 +134,9 @@ class UrbanDriverClosedLoopModelFeatureParams:
 
         if not self.future_time_steps > 0:
             raise AssertionError(f"future_time_steps must be >0! Got: {self.future_time_steps}")
+        
+        if not self.total_max_points > 0:
+            raise AssertionError(f"Total max points must be >0! Got: {self.total_max_points}")
 
         if not self.feature_dimension >= 2:
             raise AssertionError(f"Feature dimension must be >=2! Got: {self.feature_dimension}")
@@ -257,12 +263,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             self._target_params.num_output_features // num_timesteps,
             dropout=self._model_params.global_head_dropout,
         )
-        
-        ########### Closed-Loop Model ###########
 
-        self._history_num_frames_ego = 4
-        self._history_num_frames_agents = 4
-        
+
     def name(self) -> str:
         return self.__class__.__name__
     
@@ -717,8 +719,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
         # features_now = torch.cat([agents_past_polys, map_features], dim=1)
         # avails = torch.cat([agents_past_avail, map_avails], dim=1)
         
-        window_size = self._feature_params.past_time_steps + 1
-        current_timestep = self._feature_params.past_time_steps
+        window_size = self._feature_params.past_time_steps + 1 # 5
+        current_timestep = self._feature_params.past_time_steps # 4
 
         outputs_ts = []  # buffer for predictions in local spaces
         gts_ts = []  # buffer for gts in local spaces
@@ -772,11 +774,11 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             # crop agents history accordingly
             # NOTE: before padding, agent_polys_step has a number of elements equal to:
             # maxagents_polys_step& agents
-            agents_polys_step[:, 0, self._history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-_history_num_frames_ego-1, 3]
-            agent_avails_step[:, 0, self._history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-ego_past_frames-1]
+            agents_polys_step[:, 0, self._feature_params.history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-history_num_frames_ego-1, 3]
+            agent_avails_step[:, 0, self._feature_params.history_num_frames_ego + 1:] = 0 # [batch_size, max_num_vectors-history_num_frames_ego-1]
             # agents
-            agents_polys_step[:, 1:, self._history_num_frames_agents + 1:] = 0 # [batch_size, max_num_vectors-agents_past_frames-1, 3] = [16, 31, 20, 3]
-            agent_avails_step[:, 1:, self._history_num_frames_agents + 1:] = 0 # [batch_size, max_num_vectors-agents_past_frames-1] = [16, 31, 20]
+            agents_polys_step[:, 1:, self._feature_params.history_num_frames_agents + 1:] = 0 # [batch_size, max_num_vectors-history_num_frames_agents-1, 3] = [16, 31, 20, 3]
+            agent_avails_step[:, 1:, self._feature_params.history_num_frames_agents + 1:] = 0 # [batch_size, max_num_vectors-history_num_frames_agents-1] = [16, 31, 20]
 
             # transform agents and maps into right coordinate system (ts)
             agent_features_step = transform_points(agents_polys_step, ts_from_t0, agent_avails_step, yaw_ts_from_t0) # [16, 31, 20, 3]
@@ -904,6 +906,8 @@ class UrbanDriverClosedLoopModel(TorchModuleWrapper):
             "ts_traj": Trajectory(data=ts_pred),
             "trajectory": Trajectory(data=t0_pred),
             "target": Trajectory(data=goal),
+            # "ego_expert_trajectory": Trajectory(data=agents_future_polys[:,0,:,:]),
+            "ego_expert_trajectory": Trajectory(data=torch.stack(future_ego_agent_features.ego)[:,:-1,:3]),
         }
     
     

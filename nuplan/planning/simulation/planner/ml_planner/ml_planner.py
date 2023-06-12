@@ -55,7 +55,7 @@ class MLPlanner(AbstractPlanner):
         predictions = self._model_loader.infer(features)
 
         # Extract trajectory prediction
-        trajectory_predicted = cast(Trajectory, predictions['trajectory'])
+        trajectory_predicted = cast(Trajectory, predictions['trajectory']) # trajectory, ego_expert_trajectory
         trajectory_tensor = trajectory_predicted.data
         trajectory = trajectory_tensor.cpu().detach().numpy()[0]  # retrive first (and only) batch as a numpy array
 

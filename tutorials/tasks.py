@@ -36,6 +36,7 @@ class Tasks():
         
         override_list = [f'{k}={v}' for k, v in cfg.training_params.items()]
         override_list.extend([f'{k}={v}' for k, v in cfg.training_options.items()])
+        override_list.append(f'model.model_params.current_task=training') # for the model to know that it is in training mode
 
         # Compose the configuration
         cfg = hydra.compose(config_name=cfg.config_name_training, overrides=override_list)
@@ -55,6 +56,7 @@ class Tasks():
         
         override_list = [f'{k}={v}' for k, v in cfg.simulation_params.items()]
         override_list.extend([f'{k}={v}' for k, v in cfg.simulation_options.items()])
+        override_list.append(f'model.model_params.current_task=simulating') # for the model to know that it is in simulation mode
 
         if cfg.planner == 'simple_planner':
             # Compose the configuration
@@ -176,6 +178,9 @@ class Tasks():
         if len(cfgs) == 0: logger.info(f' No config to run tasks!')
         return cfgs
     
+    def delete_cache(self, cfg) -> None:
+        shutil.rmtree(f'${cfg.save_dir_training}/cache', ignore_errors=True)
+    
     # @hydra.main(config_path="config", config_name="default_config") # hydra doesn't support main to be in a class
     def main(self, cfgs: List[DictConfig]):
         #TODO save cfg to self
@@ -196,10 +201,17 @@ class Tasks():
                     simulation_folders.append(simulation_folder)
 
         if OPEN_NUBOARD: self.open_nuboard(cfg, simulation_folders)
+        
+        
 
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs("default_config_safepathnet")
-    # [default_config_autobotego, default_config_urban_driver_open_loop, default_config_urban_driver_closed_loop, default_config_urban_autobot, default_config_safepathnet]
+    cfgs = task.load_cfgs("default_config_autobotego")
+    # cfgs = task.load_cfgs("default_config_urban_driver_open_loop")
+    # cfgs = task.load_cfgs("default_config_urban_driver_open_loop_multimodal")
+    # cfgs = task.load_cfgs("default_config_urban_driver_closed_loop")
+    # cfgs = task.load_cfgs("default_config_urban_driver_closed_loop_with_v")
+    # cfgs = task.load_cfgs("default_config_safepathnet")
+    
     task.main(cfgs)

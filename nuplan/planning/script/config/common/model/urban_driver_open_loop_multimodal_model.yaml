@@ -1,34 +1,19 @@
-_target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModel
+_target_: nuplan.planning.training.modeling.models.urban_driver_open_loop_multimodal_model.UrbanDriverOpenLoopMultimodal
 _convert_: 'all'
 
 # Model setup
 # Internal model parameters
 model_params:
-  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelParams
+  _target_: nuplan.planning.training.modeling.models.urban_driver_open_loop_multimodal_model.UrbanDriverOpenLoopMultimodalModelParams
   _convert_: 'all'
-  local_embedding_size: 128
+  local_embedding_size: 256
   global_embedding_size: 256
-  feedforward_embedding_size: 1024
-  num_encoder_layers: 3
-  num_decoder_layers: 3
   num_subgraph_layers: 3
   global_head_dropout: 0.0
-  ## Closed-loop specific properties
-  detach_unroll: True # if to detach between steps when training with unroll
-  warmup_num_frames: 5 # "sample" warmup_num_steps by following the model's policy
-  discount_factor: 0.8 # discount future timesteps via discount_factor**t
-  limit_predicted_yaw: True
-  ## SafePathNet
-  agent_num_trajectories: 10
-  use_perturbation: False
-  perturbation_probability: 1.0
-  use_gaussian_perturbation: False
-  perturbation_min_displacement_m: 1.2
-  cost_prob_coeff: 0.1
-
+  num_modes: 6
 # Params for features
 feature_params:
-  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelFeatureParams
+  _target_: nuplan.planning.training.modeling.models.urban_driver_open_loop_multimodal_model.UrbanDriverOpenLoopMultimodalFeatureParams
   _convert_: 'all'
   feature_types:
     NONE: -1
@@ -42,17 +27,13 @@ feature_params:
     LEFT_BOUNDARY: 7
     RIGHT_BOUNDARY: 8
     ROUTE_LANES: 9
-  total_max_points: 16
-  past_time_steps: 4
-  future_time_steps: 16   # 20
-  feature_dimension: 3   # 8
-  history_num_frames_ego: 4      # <= past_time_steps
-  history_num_frames_agents: 4   # <= past_time_steps
+  total_max_points: 20
+  feature_dimension: 8
   # Agent features
   agent_features: [VEHICLE]
   ego_dimension: 3
-  agent_dimension: 8
-  max_agents: 50
+  agent_dimension: 3
+  max_agents: 30
   past_trajectory_sampling:
     _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
     _convert_: 'all'
@@ -80,17 +61,12 @@ feature_params:
   disable_agents: False
 # Params for targets
 target_params:
-  _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelTargetParams
+  _target_: nuplan.planning.training.modeling.models.urban_driver_open_loop_multimodal_model.UrbanDriverOpenLoopMultimodalTargetParams
   _convert_: 'all'
-  num_output_features: 3 # 48
+  num_output_features: 48
   # Parameters for predicted trajectory
   future_trajectory_sampling:
     _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
     _convert_: 'all'
     num_poses: 16      # target future poses
     time_horizon: 8.0  # [s] time horizon of future poses
-  expert_trajectory_sampling:
-    _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
-    _convert_: 'all'
-    num_poses: 20      # target future poses
-    time_horizon: 10.0  # [s] time horizon of future poses

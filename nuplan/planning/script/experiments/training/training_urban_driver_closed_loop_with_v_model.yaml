@@ -1,0 +1,19 @@
+# @package _global_
+job_name: urban_driver_closed_loop_with_v_model
+py_func: train
+objective_aggregate_mode: mean
+
+defaults:
+  - override /data_augmentation:
+      - kinematic_history_generic_agent_augmentation
+      - generic_agent_dropout_augmentation
+  - override /objective:
+      - closed_loop_with_v_trajectory_weight_decay_imitation_objective
+  - override /splitter: nuplan
+  - override /model: urban_driver_closed_loop_with_v_model
+  - override /scenario_filter: training_scenarios
+  - override /training_metric:
+      - closed_loop_avg_displacement_error
+      - closed_loop_avg_heading_error
+      - closed_loop_final_displacement_error
+      - closed_loop_final_heading_error

@@ -26,6 +26,9 @@ from nuplan.planning.training.preprocessing.utils.agents_preprocessing import (
     sampled_tracked_objects_to_tensor_list,
 )
 
+from nuplan.common.actor_state.state_representation import StateSE2, StateVector2D, TimePoint
+from nuplan.common.actor_state.vehicle_parameters import VehicleParameters
+
 
 class GenericExpertFeatureBuilder(ScriptableFeatureBuilder):
     """Builder for constructing agent features during training and simulation."""
@@ -113,12 +116,26 @@ class GenericExpertFeatureBuilder(ScriptableFeatureBuilder):
         self, current_input: PlannerInput, initialization: PlannerInitialization
     ) -> GenericAgents:
         """Inherited, see superclass."""
-        with torch.no_grad():
+        with torch.no_grad():     
             history = current_input.history
             assert isinstance(
                 history.observations[0], DetectionsTracks
             ), f"Expected observation of type DetectionTracks, got {type(history.observations[0])}"
-
+            
+            # # replace future_ego_states by mission_goal
+            # present_ego_state = EgoState.build_from_rear_axle(
+            #     # rear_axle_pose = initialization.mission_goal if initialization.mission_goal is not None else StateSE2.deserialize([0.0, 0.0, 0.0]), # modified to expert_goal_state in simulation.py
+            #     rear_axle_pose = initialization.mission_goal,
+            #     rear_axle_velocity_2d = StateVector2D(0.0, 0.0),
+            #     rear_axle_acceleration_2d = StateVector2D(0.0, 0.0),
+            #     tire_steering_angle = 0.0,
+            #     time_point = TimePoint(0.0),
+            #     vehicle_parameters = VehicleParameters(width=0.0, front_length=0.0, rear_length=0.0, cog_position_from_rear_axle=0.0, wheel_base=0.0, vehicle_name="", vehicle_type="", height=None),
+            #     is_in_auto_mode = True,
+            #     angular_vel = 0.0,
+            #     angular_accel = 0.0,
+            #     tire_steering_rate = 0.0,
+            # )
             present_ego_state, present_observation = history.current_state
 
             future_observations = history.observations[:-1]

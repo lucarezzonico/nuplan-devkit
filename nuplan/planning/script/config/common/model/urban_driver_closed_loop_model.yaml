@@ -12,7 +12,7 @@ model_params:
   global_head_dropout: 0.0
   ## Closed-loop specific properties
   detach_unroll: True # if to detach between steps when training with unroll
-  warmup_num_frames: 5 # "sample" warmup_num_steps by following the model's policy
+  warmup_num_frames: 10 # "sample" warmup_num_steps by following the model's policy
   discount_factor: 0.8 # discount future timesteps via discount_factor**t
   limit_predicted_yaw: True
 # Params for features
@@ -31,14 +31,18 @@ feature_params:
     LEFT_BOUNDARY: 7
     RIGHT_BOUNDARY: 8
     ROUTE_LANES: 9
+  total_max_points: 16
   past_time_steps: 4
   future_time_steps: 16   # 20
-  feature_dimension: 3   # 8
+  feature_dimension: 3    # 8, 3
+  history_num_frames_ego: 4      # <= past_time_steps
+  history_num_frames_agents: 4   # <= past_time_steps
   # Agent features
-  agent_features: [VEHICLE]
-  ego_dimension: 3
-  agent_dimension: 8
+  agent_features: [VEHICLE, BICYCLE, PEDESTRIAN] # [VEHICLE, BICYCLE, PEDESTRIAN]
+  ego_dimension: 3        # 8, 3
+  agent_dimension: 3      # 8
   max_agents: 30
+
   past_trajectory_sampling:
     _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
     _convert_: 'all'
@@ -68,7 +72,7 @@ feature_params:
 target_params:
   _target_: nuplan.planning.training.modeling.models.urban_driver_closed_loop_model.UrbanDriverClosedLoopModelTargetParams
   _convert_: 'all'
-  num_output_features: 3 # 48
+  num_output_features: 6 # 48, 3
   # Parameters for predicted trajectory
   future_trajectory_sampling:
     _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling

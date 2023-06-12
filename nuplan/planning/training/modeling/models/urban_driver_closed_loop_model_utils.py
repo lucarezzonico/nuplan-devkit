@@ -6,6 +6,10 @@ from torch.nn import functional as F
 
 import numpy as np
 
+from nuplan.planning.training.modeling.models.urban_driver_open_loop_model_utils import (
+    MLP,
+)
+
 
 def transform_points(
     element: torch.Tensor, matrix: torch.Tensor, avail: torch.Tensor, yaw: Optional[torch.Tensor] = None
@@ -107,3 +111,65 @@ def build_target_normalization(nsteps: int) -> torch.Tensor:
     coefs = np.stack([np.poly1d(p)(np.arange(nsteps)) for p in normalization_polynomials])
     coefs = coefs.astype(np.float32)
     return torch.from_numpy(coefs).T
+
+
+class MultiheadAttentionGlobalHead(nn.Module):
+    """
+    Copied from L5Kit's implementation `MultiheadAttentionGlobalHead`:
+    https://github.com/woven-planet/l5kit/blob/master/l5kit/l5kit/planning/vectorized/global_graph.py.
+    Changes:
+        1. Add input & output description for `__init__`, `forward`
+        2. Add num_mlp_layers & hidden_size_scaling to adjust MLP layers
+        3. Change input variable `d_model` to `global_embedding_size`
+
+    Global graph making use of multi-head attention.
+    """
+
+    def __init__(
+        self,
+        global_embedding_size: int,
+        num_timesteps: int,
+        num_outputs: int,
+        nhead: int = 8,
+        dropout: float = 0.1,
+        hidden_size_scaling: int = 4,
+        num_mlp_layers: int = 3,
+    ):
+        """
+        Constructs global multi-head attention layer.
+        :param global_embedding_size: Feature size.
+        :param num_timesteps: Number of output timesteps.
+        :param num_outputs: Number of output features per timestep.
+        :param nhead: Number of attention heads. Default 8: query=ego, keys=types,ego,agents,map, values=ego,agents,map.
+        :param dropout: Float in range [0,1] for level of dropout. Set to 0 to disable it. Default 0.1.
+        :param hidden_size_scaling: Controls hidden layer size, scales embedding dimensionality. Default 4.
+        :param num_mlp_layers: Num MLP layers. Default 3.
+        """
+        super().__init__()
+        self.num_timesteps = num_timesteps
+        self.num_outputs = num_outputs
+        self.encoder = nn.MultiheadAttention(global_embedding_size, nhead, dropout=dropout)
+        self.output_embed = MLP(
+            global_embedding_size,
+            global_embedding_size * hidden_size_scaling,
+            num_timesteps * num_outputs,
+            num_mlp_layers,
+        )
+
+    def forward(
+        self, inputs: torch.Tensor, type_embedding: torch.Tensor, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """
+        Forward of the module.
+        :param inputs: Model inputs. [1 + N + M, batch_size, feature_dim]
+        :param type_embedding: Type embedding describing the different input types. [1 + N + M, batch_size, feature_dim]
+        :param mask: Availability mask. [batch_size, 1 + N + M]
+        :return Tuple of outputs, attention.
+        """
+        # dot-product attention:
+        #   - query is ego's vector
+        #   - key is inputs plus type embedding
+        #   - value is inputs
+        out, attns = self.encoder(inputs[[0]], inputs + type_embedding, inputs, mask)
+        outputs = self.output_embed(out[0]).view(-1, self.num_timesteps, self.num_outputs)
+        return outputs, attns

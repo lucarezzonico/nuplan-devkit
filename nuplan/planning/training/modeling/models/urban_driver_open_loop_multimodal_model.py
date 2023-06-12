@@ -21,7 +21,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
-from nuplan.planning.training.modeling.models.urban_driver_open_loop_model_utils import (
+from nuplan.planning.training.modeling.models.urban_driver_open_loop_multimodal_model_utils import (
     LocalSubGraph,
     MultiheadAttentionGlobalHead,
     SinusoidalPositionalEmbedding,
@@ -39,10 +39,12 @@ from nuplan.planning.training.preprocessing.feature_builders.vector_set_map_feat
 )
 from nuplan.planning.training.preprocessing.features.generic_agents import GenericAgents
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
 from nuplan.planning.training.preprocessing.features.vector_set_map import VectorSetMap
 from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import (
     EgoTrajectoryTargetBuilder,
 )
+from nuplan.planning.training.preprocessing.features.tensor_target import TensorTarget
 
 
 import matplotlib.pyplot as plt
@@ -50,7 +52,7 @@ import seaborn as sns
 
 
 @dataclass
-class UrbanDriverOpenLoopModelParams:
+class UrbanDriverOpenLoopMultimodalModelParams:
     """
     Parameters for UrbanDriverOpenLoop model.
         local_embedding_size: embedding dimensionality of local subgraph layers.
@@ -63,11 +65,10 @@ class UrbanDriverOpenLoopModelParams:
     global_embedding_size: int
     num_subgraph_layers: int
     global_head_dropout: float
-
     num_modes: int
-    
+
 @dataclass
-class UrbanDriverOpenLoopModelFeatureParams:
+class UrbanDriverOpenLoopMultimodalFeatureParams:
     """
     Parameters for UrbanDriverOpenLoop features.
         feature_types: List of feature types (agent and map) supported by model. Used in type embedding layer.
@@ -148,7 +149,7 @@ class UrbanDriverOpenLoopModelFeatureParams:
 
 
 @dataclass
-class UrbanDriverOpenLoopModelTargetParams:
+class UrbanDriverOpenLoopMultimodalTargetParams:
     """
     Parameters for UrbanDriverOpenLoop targets.
         num_output_features: number of target features.
@@ -169,7 +170,7 @@ def convert_predictions_to_trajectory(predictions: torch.Tensor) -> torch.Tensor
     return predictions.view(num_batches, -1, Trajectory.state_size())
 
 
-class UrbanDriverOpenLoopModel(TorchModuleWrapper):
+class UrbanDriverOpenLoopMultimodal(TorchModuleWrapper):
     """
     Vector-based model that uses PointNet-based subgraph layers for collating loose collections of vectorized inputs
     into local feature descriptors to be used as input to a global Transformer.
@@ -185,9 +186,9 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
 
     def __init__(
         self,
-        model_params: UrbanDriverOpenLoopModelParams,
-        feature_params: UrbanDriverOpenLoopModelFeatureParams,
-        target_params: UrbanDriverOpenLoopModelTargetParams,
+        model_params: UrbanDriverOpenLoopMultimodalModelParams,
+        feature_params: UrbanDriverOpenLoopMultimodalFeatureParams,
+        target_params: UrbanDriverOpenLoopMultimodalTargetParams,
     ):
         """
         Initialize UrbanDriverOpenLoop model.
@@ -233,7 +234,11 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
             num_timesteps,
             self._target_params.num_output_features // num_timesteps,
             dropout=self._model_params.global_head_dropout,
+            num_modes=self._model_params.num_modes
         )
+        
+    def name(self) -> str:
+        return self.__class__.__name__
 
     def extract_agent_features(
         self, ego_agent_features: GenericAgents, batch_size: int
@@ -441,27 +446,27 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
         batch_size = ego_agent_features.batch_size
 
         # Extract features across batch
-        agent_features, agent_avails = self.extract_agent_features(ego_agent_features, batch_size)
-        map_features, map_avails = self.extract_map_features(vector_set_map_data, batch_size)
-        features = torch.cat([agent_features, map_features], dim=1)
-        avails = torch.cat([agent_avails, map_avails], dim=1)
+        agent_features, agent_avails = self.extract_agent_features(ego_agent_features, batch_size)  # [8, 31, 20, 8], [8, 31, 20]
+        map_features, map_avails = self.extract_map_features(vector_set_map_data, batch_size)   # [8, 160, 20, 8], [8, 160, 20]
+        features = torch.cat([agent_features, map_features], dim=1) # [8, 191, 20, 8]
+        avails = torch.cat([agent_avails, map_avails], dim=1)    # [8, 191, 20]
 
         # embed inputs
-        feature_embedding = self.feature_embedding(features)
+        feature_embedding = self.feature_embedding(features)    # [8, 191, 20, 256]
 
         # calculate positional embedding, then transform [num_points, 1, feature_dim] -> [1, 1, num_points, feature_dim]
-        pos_embedding = self.positional_embedding(features).unsqueeze(0).transpose(1, 2)
+        pos_embedding = self.positional_embedding(features).unsqueeze(0).transpose(1, 2) # [1, 1, 20, 256]
 
         # invalid mask
-        invalid_mask = ~avails
-        invalid_polys = invalid_mask.all(-1)
+        invalid_mask = ~avails  # [8, 191, 20]
+        invalid_polys = invalid_mask.all(-1)    # [8, 191]
 
         # local subgraph
-        embeddings = self.local_subgraph(feature_embedding, invalid_mask, pos_embedding)
+        embeddings = self.local_subgraph(feature_embedding, invalid_mask, pos_embedding)    # [8, 191, 256]
         if hasattr(self, "global_from_local"):
             embeddings = self.global_from_local(embeddings)
-        embeddings = F.normalize(embeddings, dim=-1) * (self._model_params.global_embedding_size**0.5)
-        embeddings = embeddings.transpose(0, 1)
+        embeddings = F.normalize(embeddings, dim=-1) * (self._model_params.global_embedding_size**0.5)  # [8, 191, 256]
+        embeddings = embeddings.transpose(0, 1) # [191, 8, 256]
 
         type_embedding = self.type_embedding(
             batch_size,
@@ -470,7 +475,7 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
             self._feature_params.map_features,
             self._feature_params.max_elements,
             device=features.device,
-        ).transpose(0, 1)
+        ).transpose(0, 1)   # [191, 8, 256]
 
         # disable certain elements on demand
         if self._feature_params.disable_agents:
@@ -486,13 +491,24 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
         invalid_polys[:, 0] = 0  # make ego always available in global graph
 
         # global attention layers (transformer)
-        outputs, attns = self.global_head(embeddings, type_embedding, invalid_polys)
+        outputs, attns, classification = self.global_head(embeddings, type_embedding, invalid_polys)
+        # outputs [8, 6, 16, 3], attns [8, 6+1, 191], classification [8, 6]
         
+        traj = Trajectory(data=convert_predictions_to_trajectory(outputs[:,0,:,:]))
+        trajs = Trajectories([Trajectory(outputs[i,:,:,:]) for i in range(outputs.size(0))])
+
+
+
+        outputs_sorted, classification_sorted = self.sort_predictions(outputs, classification) # [8, 6, 16, 3]
         # self.plot_attention_weights(attn_weights=attns)
 
-        return {"trajectory": Trajectory(data=convert_predictions_to_trajectory(outputs))}
-    
-    
+        return {
+            "trajectory": traj,
+            "trajectories": trajs,
+            "probs": TensorTarget(classification_sorted),
+            "multimodal_outputs": TensorTarget(outputs_sorted),
+        }
+
     
     def plot_attention_weights(self, attn_weights: torch.Tensor):
         """
@@ -510,3 +526,24 @@ class UrbanDriverOpenLoopModel(TorchModuleWrapper):
         ax.set_ylabel("Target Sequence")
         ax.set_title("Attention Weights each batch")
         plt.savefig('attention_weights.png')
+        
+        
+    def sort_predictions(self, all_pred_agents: torch.Tensor, mode_probs: torch.Tensor) -> torch.Tensor:
+        """select the trajectory with the largest probability for each batch of data
+        Args:
+            all_pred_agents: shape [B, c, T, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
+            mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
+        """
+
+        # Sort the trajectory probabilities in descending order
+        mode_probs_sorted, pred_traj_index = mode_probs.sort(dim=-1, descending=True) # [8, 6]
+
+        # [batch_size, num_modes, 1, 1]
+        pred_traj_index_expanded = pred_traj_index[:, :, None, None] # [8, 6, 1, 1]
+        # [batch_size, num_modes, num_future_frames, 3]
+        # NOTE: torch.gather can be non-deterministic -- from pytorch 1.9.0 torch.take_along_dim can be used instead
+        all_pred_agents_sorted = torch.gather(
+            all_pred_agents, dim=1,
+            index=pred_traj_index_expanded.expand(([-1, -1] + list(all_pred_agents.shape[-2:])))).squeeze(dim=1) # [8, 6, 16, 3]
+
+        return all_pred_agents_sorted, mode_probs_sorted

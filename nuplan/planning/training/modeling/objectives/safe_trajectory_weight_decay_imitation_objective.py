@@ -41,6 +41,9 @@ class SafeTrajectoryWeightDecayImitationObjective(AbstractObjective):
         self._scenario_type_loss_weighting = scenario_type_loss_weighting
         
         self.criterion = torch.nn.modules.loss.L1Loss(reduction='none')
+        self.l1_loss = torch.nn.modules.loss.L1Loss(reduction='none')
+        self.l2_loss = torch.nn.modules.loss.MSELoss(reduction='none')
+        
         self.agent_traj_matcher = TrajectoryMatcher(cost_prob_coeff=0.1)
         self.eps = float(torch.finfo(torch.float).eps)
 
@@ -54,7 +57,7 @@ class SafeTrajectoryWeightDecayImitationObjective(AbstractObjective):
         """Implemented. See interface."""
         return ["trajectory"]
 
-    def compute_example(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
+    def compute(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
         """
         Computes the objective's loss given the ground truth targets and the model's predictions
         and weights it based on a fixed weight factor.
@@ -63,7 +66,7 @@ class SafeTrajectoryWeightDecayImitationObjective(AbstractObjective):
         :param targets: ground truth targets from the dataset (according to target_builders in model's init)
         :return: loss scalar tensor
         """
-        predicted_trajectory = cast(Trajectory, predictions["trajectories"].trajectories[0])
+        predicted_trajectory = cast(Trajectory, Trajectory(predictions["trajectories"].data[:,0,0,:,:]))
         targets_trajectory = cast(Trajectory, targets["trajectory"])    # predictions["target"] for closed loop, same for metrics
         loss_weights = extract_scenario_type_weight(
             scenarios, self._scenario_type_loss_weighting, device=predicted_trajectory.xy.device
@@ -94,7 +97,7 @@ class SafeTrajectoryWeightDecayImitationObjective(AbstractObjective):
             torch.mean(weighted_xy_loss * decay_weight) + torch.mean(weighted_heading_loss * decay_weight[:, :, 0])
         )
         
-    def compute(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
+    def compute_new(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
         """
         Computes the objective's loss given the ground truth targets and the model's predictions
         and weights it based on a fixed weight factor.
@@ -112,6 +115,9 @@ class SafeTrajectoryWeightDecayImitationObjective(AbstractObjective):
         
         # compute loss on trajectories
         agent_loss = self.criterion(pred_agents, target)   # [16, 50, 20, 30, 3]
+        # agent_loss_xy = self.l2_loss(pred_agents[:,:,:,:,:2], target[:,:,:,:,:2])
+        # agent_loss_yaw = self.l1_loss(pred_agents[:,:,:,:,2:3], target[:,:,:,:,2:3])
+        # agent_loss = torch.cat([agent_loss_xy, agent_loss_yaw], dim=-1)
         agent_loss *= target_avails.unsqueeze(-1)   # [16, 50, 20, 30, 3]
         pred_num_valid_targets = target_avails.sum().float()    # [1]
 

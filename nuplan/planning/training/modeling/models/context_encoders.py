@@ -1,6 +1,53 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import math
+
+class PositionalEncoding(nn.Module):
+    '''
+    Standard positional encoding.
+    '''
+    def __init__(self, d_model, dropout=0.1, max_len=1000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        '''
+        :param x: must be (T, B, H)
+        :return:
+        '''
+        # example x: [5, 808, 128], self.pe: [20, 1, 128]
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
+
+class LearntPositionalEncoding(nn.Module):
+    '''
+    Standard positional encoding.
+    '''
+    def __init__(self, d_model, dropout=0.1, max_len=1000):
+        super(LearntPositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.pe = nn.Parameter(pe, requires_grad=True)
+    def forward(self, x):
+        '''
+        :param x: must be (T, B, H)
+        :return:
+        '''
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
 
 
 def init(module, weight_init, bias_init, gain=1):
@@ -58,6 +105,10 @@ class MapEncoderPts(nn.Module):
         init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
 
         self.road_pts_lin = nn.Sequential(init_(nn.Linear(map_attr, self.d_k)))
+        
+        # self.positional_encoding = LearntPositionalEncoding(d_model=self.d_k, dropout=self.dropout)
+        self.positional_encoding = PositionalEncoding(d_model=self.d_k, dropout=self.dropout)
+        
         self.road_pts_attn_layer = nn.MultiheadAttention(self.d_k, num_heads=8, dropout=self.dropout)
         self.norm1 = nn.LayerNorm(self.d_k, eps=1e-5)
         self.norm2 = nn.LayerNorm(self.d_k, eps=1e-5)
@@ -85,6 +136,11 @@ class MapEncoderPts(nn.Module):
         P = roads.shape[2]
         road_segment_mask, road_pts_mask = self.get_road_pts_mask(roads)
         road_pts_feats = self.road_pts_lin(roads[:, :, :, :self.map_attr]).view(B*S, P, -1).permute(1, 0, 2)
+       # road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).view(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
+        road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).permute(1, 0, 2, 3).reshape(S, B*P, -1) # (S, B*P, d_k)
+
+        road_pts_feats = self.positional_encoding(road_pts_feats_original)
+        road_pts_feats = road_pts_feats.view(S, B, P, -1).permute(1, 0, 2, 3).reshape(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
 
         # Combining information from each road segment using attention with agent contextual embeddings as queries.
         agents_emb = agents_emb[-1].unsqueeze(2).repeat(1, 1, S, 1).view(-1, self.d_k).unsqueeze(0)

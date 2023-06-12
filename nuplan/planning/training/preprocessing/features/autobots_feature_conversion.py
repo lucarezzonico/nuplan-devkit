@@ -233,6 +233,6 @@ class NuplanToAutobotsConverter:
         trajs_3[:,:,:,-1] = 0
         
         ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
-        predicted_trajs = [Trajectory(data=pred[:, 0]) for pred in ego_trajs] # ego trajs
+        predicted_trajs = [Trajectory(data=pred[:, 0]) for pred in ego_trajs] # ego trajs # [8]Trajectory(6, 16, 3)
         
-        return Trajectories(trajectories=predicted_trajs)
+        return Trajectories(trajectories=predicted_trajs) # Trajectories([8]Trajectory(6, 16, 3))

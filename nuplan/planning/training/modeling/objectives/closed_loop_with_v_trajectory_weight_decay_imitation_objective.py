@@ -53,6 +53,8 @@ class ClosedLoopTrajectoryWeightDecayImitationObjective(AbstractObjective):
         """
         predicted_trajectory = cast(Trajectory, predictions["ts_traj"])
         targets_trajectory = cast(Trajectory, predictions["target"])    # predictions["target"] for closed loop, same for metrics
+        outputs_ts_dot = cast(TensorTarget, predictions["outputs_ts_dot"])
+        targets_ts_dot = cast(TensorTarget, predictions["targets_ts_dot"])
         loss_weights = extract_scenario_type_weight(
             scenarios, self._scenario_type_loss_weighting, device=predicted_trajectory.xy.device
         )
@@ -67,6 +69,8 @@ class ClosedLoopTrajectoryWeightDecayImitationObjective(AbstractObjective):
         broadcasted_loss_weights_xy = loss_weights.view(broadcast_shape_xy)
         broadcast_shape_heading = tuple([-1] + [1 for _ in range(predicted_trajectory.heading.dim() - 1)])
         broadcasted_loss_weights_heading = loss_weights.view(broadcast_shape_heading)
+        broadcast_shape_v = tuple([-1] + [1 for _ in range(outputs_ts_dot.data.dim() - 1)])
+        broadcasted_loss_weights_v = loss_weights.view(broadcast_shape_v)
 
         weighted_xy_loss = self._fn_xy(predicted_trajectory.xy, targets_trajectory.xy) * broadcasted_loss_weights_xy
         weighted_heading_loss = (
@@ -74,11 +78,16 @@ class ClosedLoopTrajectoryWeightDecayImitationObjective(AbstractObjective):
             * broadcasted_loss_weights_heading
         )
         
+        # add velocity vx, vy to loss
+        weighted_v_loss = self._fn_v(outputs_ts_dot.data[:,:,0:2], targets_ts_dot.data[:,:,0:2]) * broadcasted_loss_weights_v
+
         # Assert that broadcasting was done correctly
         assert weighted_xy_loss.size() == predicted_trajectory.xy.size()
         assert weighted_heading_loss.size() == predicted_trajectory.heading.size()
+        assert weighted_v_loss.size() == outputs_ts_dot.data[:,:,0:2].size()
 
         return self._weight * (
             torch.mean(weighted_xy_loss * decay_weight) +
-            torch.mean(weighted_heading_loss * decay_weight[:, :, 0])
+            torch.mean(weighted_heading_loss * decay_weight[:, :, 0]) +
+            torch.mean(weighted_v_loss * decay_weight)
         )

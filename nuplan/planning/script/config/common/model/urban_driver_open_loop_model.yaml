@@ -10,6 +10,7 @@ model_params:
   global_embedding_size: 256
   num_subgraph_layers: 3
   global_head_dropout: 0.0
+  num_modes: 6
 # Params for features
 feature_params:
   _target_: nuplan.planning.training.modeling.models.urban_driver_open_loop_model.UrbanDriverOpenLoopModelFeatureParams
@@ -31,7 +32,7 @@ feature_params:
   # Agent features
   agent_features: [VEHICLE]
   ego_dimension: 3
-  agent_dimension: 8
+  agent_dimension: 3
   max_agents: 30
   past_trajectory_sampling:
     _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling

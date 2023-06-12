@@ -43,6 +43,69 @@ def build_matrix(translation: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.
 
     return matrix, inverse_matrix
 
+
+class MultiheadAttentionGlobalHead(nn.Module):
+    """
+    Copied from L5Kit's implementation `MultiheadAttentionGlobalHead`:
+    https://github.com/woven-planet/l5kit/blob/master/l5kit/l5kit/planning/vectorized/global_graph.py.
+    Changes:
+        1. Add input & output description for `__init__`, `forward`
+        2. Add num_mlp_layers & hidden_size_scaling to adjust MLP layers
+        3. Change input variable `d_model` to `global_embedding_size`
+
+    Global graph making use of multi-head attention.
+    """
+
+    def __init__(
+        self,
+        global_embedding_size: int,
+        num_timesteps: int,
+        num_outputs: int,
+        nhead: int = 8,
+        dropout: float = 0.1,
+        hidden_size_scaling: int = 4,
+        num_mlp_layers: int = 3,
+    ):
+        """
+        Constructs global multi-head attention layer.
+        :param global_embedding_size: Feature size.
+        :param num_timesteps: Number of output timesteps.
+        :param num_outputs: Number of output features per timestep.
+        :param nhead: Number of attention heads. Default 8: query=ego, keys=types,ego,agents,map, values=ego,agents,map.
+        :param dropout: Float in range [0,1] for level of dropout. Set to 0 to disable it. Default 0.1.
+        :param hidden_size_scaling: Controls hidden layer size, scales embedding dimensionality. Default 4.
+        :param num_mlp_layers: Num MLP layers. Default 3.
+        """
+        super().__init__()
+        self.num_timesteps = num_timesteps
+        self.num_outputs = num_outputs
+        self.encoder = nn.MultiheadAttention(global_embedding_size, nhead, dropout=dropout)
+        self.output_embed = MLP(
+            global_embedding_size,
+            global_embedding_size * hidden_size_scaling,
+            num_timesteps * num_outputs,
+            num_mlp_layers,
+        )
+
+    def forward(
+        self, inputs: torch.Tensor, type_embedding: torch.Tensor, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """
+        Forward of the module.
+        :param inputs: Model inputs. [1 + N + M, batch_size, feature_dim]
+        :param type_embedding: Type embedding describing the different input types. [1 + N + M, batch_size, feature_dim]
+        :param mask: Availability mask. [batch_size, 1 + N + M]
+        :return Tuple of outputs, attention.
+        """
+        # dot-product attention:
+        #   - query is ego's vector
+        #   - key is inputs plus type embedding
+        #   - value is inputs
+        out, attns = self.encoder(inputs[[0]], inputs + type_embedding, inputs, mask)
+        outputs = self.output_embed(out[0]).view(-1, self.num_timesteps, self.num_outputs)
+        return outputs, attns
+    
+    
 class TrajectoryMatcher(nn.Module):
     """Picks the closest trajectory based on provided costs per trajectory and trajectory logits.
     """
@@ -231,13 +294,15 @@ class MultimodalTransformerGlobalGraph(nn.Module):
             "The shape of the polylines embeddings and types are not consistent"
 
         # # [batch_size, 1, transformer_global_graph.dim_in]
-        # polys_embed_ego = polys_embed[:, :1]
-        # repeated_ego = self.repeat_ego_features(polys_embed_ego) + self.egos_embedding
-
+        polys_embed_ego = polys_embed[:, :1]
+        invalid_mask_ego = invalid_mask[:, :1]
+        invalid_mask_ego_repeated = self.repeat_ego_features(invalid_mask_ego.unsqueeze(-1)).squeeze(-1)
+        repeated_ego = self.repeat_ego_features(polys_embed_ego) + self.egos_embedding
+        
         # set the prediction mask to get the agents
         # [num_polylines]
         prediction_mask = torch.zeros(polys_embed.shape[1], dtype=torch.bool, device=polys_embed.device)
-        prediction_mask[0:1 + self.max_num_agents] = True   # prediction_mask[1:1 + self.max_num_agents] = True  # Solves Loss problem due to unused model outputs
+        prediction_mask[1:1 + self.max_num_agents] = True   # prediction_mask[1:1 + self.max_num_agents] = True  # Solves Loss problem due to unused model outputs
 
         num_agents = int(prediction_mask.sum().item())
         # [batch_size, num_agents, transformer_global_graph.dim_in]
@@ -247,9 +312,14 @@ class MultimodalTransformerGlobalGraph(nn.Module):
         agents_embedding_repeated = self.agents_embedding.repeat((num_agents, 1))
         repeated_agents = self.repeat_agent_features(polys_embed_agents) + agents_embedding_repeated
         decoder_invalid_mask = invalid_mask_agents_repeated
-
+        
+        # concatenate ego and agents
+        repeated_ego_agents = torch.cat([repeated_ego, repeated_agents], dim=1)
+        invalid_mask_ego_agents_repeated = torch.cat([invalid_mask_ego_repeated, invalid_mask_agents_repeated], dim=1)
+        decoder_invalid_mask = invalid_mask_ego_agents_repeated
+        
         out: torch.Tensor = self.transformer_global_graph(
-            polys_embed=polys_embed, polys_embed_decoder=repeated_agents,
+            polys_embed=polys_embed, polys_embed_decoder=repeated_ego_agents,
             invalid_mask=invalid_mask, tgt_invalid_mask=decoder_invalid_mask, types=types)
 
         return out
@@ -293,6 +363,13 @@ class MultimodalDecoder(nn.Module):
         self.transformer = MultimodalTransformerGlobalGraph(transformer_global_graph, num_trajectories,
                                                             agent_num_trajectories, max_num_agents)
 
+        self.ego_prediction_model = MLP(
+            projection_dim,
+            projection_dim * 2,
+            future_num_frames * 3 + (1 if num_trajectories > 1 else 0),
+            num_layers=num_mlp_layers,
+        )
+        
         self.agent_prediction_model = MLP(
             projection_dim,
             projection_dim * 2,
@@ -319,8 +396,29 @@ class MultimodalDecoder(nn.Module):
         :param invalid_mask: bool tensor representing the mask of polylines with no valid information
             shape: [batch_size, num_polylines] (bool)
         """
-        agents_embedding = self.transformer(polys_embed, invalid_mask, types)
-
+        ego_agents_embedding = self.transformer(polys_embed, invalid_mask, types)
+        ego_embedding = ego_agents_embedding[:, :self.num_trajectories]
+        agents_embedding = ego_agents_embedding[:, self.num_trajectories:]
+        
+        # PREDICT EGO
+        ego_decoder_outputs = self.ego_prediction_model(ego_embedding).unsqueeze(dim=1)
+        if self.multimodal_predictions:
+            # [batch_size, num_agents, num_trajectories, future_num_frames * 3]
+            ego_predictions = ego_decoder_outputs[:, :, :, :-1]
+            # [batch_size, num_agents, num_trajectories]
+            ego_traj_probs = ego_decoder_outputs[:, :, :, -1]
+        else:
+            # [batch_size, num_agents, 1, future_num_frames * 3]
+            ego_predictions = ego_decoder_outputs
+            # [batch_size, num_agents, 1]
+            ego_traj_probs = torch.ones_like(
+                ego_decoder_outputs[..., 0])  # create a fake probability distrib.
+            
+        # [batch_size, num_agents, num_trajectories, num_timesteps, 3]
+        ego_predictions = ego_predictions.view(
+            list(ego_predictions.shape[:3]) + [self.num_timesteps, 3])
+        
+        # PREDICT AGENTS
         # [batch_size, num_agents, num_trajectories, num_features]
         agents_embedding = agents_embedding.view(agents_embedding.shape[0], -1, self.agent_num_trajectories,
                                                  agents_embedding.shape[-1])
@@ -341,5 +439,13 @@ class MultimodalDecoder(nn.Module):
         # [batch_size, num_agents, num_trajectories, num_timesteps, 3]
         agents_predictions = agents_predictions.view(
             list(agents_predictions.shape[:3]) + [self.agent_num_timesteps, 3])
+        
+        
+        # concatenate ego and agents
+        ego_agents_predictions = torch.cat([ego_predictions, agents_predictions], dim=1)
+        ego_agents_traj_probs = torch.cat([ego_traj_probs, agents_traj_probs], dim=1)
 
-        return agents_predictions, agents_traj_probs
+        return ego_agents_predictions, ego_agents_traj_probs
+
+
+

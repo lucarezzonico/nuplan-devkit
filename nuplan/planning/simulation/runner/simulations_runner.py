@@ -104,6 +104,7 @@ class SimulationRunner(AbstractRunner):
 
             # Perform step
             planner_input = self._simulation.get_planner_input()
+            # planner_input = self._simulation.get_planner_input_expert()
             logger.debug("Simulation iterations: %s" % planner_input.iteration.index)
 
             # Execute specific callback

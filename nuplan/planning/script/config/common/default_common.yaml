@@ -7,6 +7,7 @@ defaults:
   - model: null
   # Worker that is used to run simulations
   - worker: ray_distributed
+  # - worker: sequential  # for debugging inside simulation
 
 distribute_by_scenario: true
 

@@ -2,7 +2,7 @@ import abc
 import time
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional, Type
+from typing import Any, List, Optional, Type, Generator
 
 from nuplan.common.actor_state.state_representation import StateSE2
 from nuplan.common.maps.abstract_map import AbstractMap
@@ -13,6 +13,17 @@ from nuplan.planning.simulation.planner.planner_report import PlannerReport
 from nuplan.planning.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
 from nuplan.planning.simulation.trajectory.abstract_trajectory import AbstractTrajectory
 
+from nuplan.common.actor_state.ego_state import EgoState
+
+@dataclass(frozen=True)
+class PlannerInputExpert:
+    """
+    This class represents required data to initialize a planner.
+    """
+    iteration: SimulationIteration  # Iteration and time in a simulation progress
+    history: SimulationHistoryBuffer  # Rolling buffer containing past observations and states.
+    traffic_light_data: Optional[List[TrafficLightStatusData]] = None  # The traffic light status data
+    
 
 @dataclass(frozen=True)
 class PlannerInitialization:

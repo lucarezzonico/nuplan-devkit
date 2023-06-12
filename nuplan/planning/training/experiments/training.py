@@ -63,6 +63,8 @@ def build_training_engine(cfg: DictConfig, worker: WorkerPool) -> TrainingEngine
     
     # Copy checkpoint dir to model to be able to access it in visualization_callback
     model.set_checkpoint_dir(str(Path(trainer.checkpoint_callback.dirpath).parent))
+    # cfg.model.model_params.checkpoint_dir = str(Path(trainer.checkpoint_callback.dirpath).parent)
+    # print("new ckpt dir: ", cfg.model.model_params.checkpoint_dir)
     
     engine = TrainingEngine(trainer=trainer, datamodule=datamodule, model=model)
 

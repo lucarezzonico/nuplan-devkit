@@ -99,7 +99,7 @@ class Trajectory(AbstractModelFeature):
         """
         Array of x positions of trajectory.
         """
-        return np.asarray(self.data[..., 0])
+        return np.asarray(self.data[..., 0].detach())
 
     @property
     def position_y(self) -> FeatureDataType:
@@ -113,7 +113,7 @@ class Trajectory(AbstractModelFeature):
         """
         Array of y positions of trajectory.
         """
-        return np.asarray(self.data[..., 1])
+        return np.asarray(self.data[..., 1].detach())
 
     @property
     def heading(self) -> FeatureDataType:

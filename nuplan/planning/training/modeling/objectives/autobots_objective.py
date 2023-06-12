@@ -28,6 +28,7 @@ class AutobotsObjective(AbstractObjective):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self._scenario_type_loss_weighting = scenario_type_loss_weighting
 
     def name(self) -> str:
         """
@@ -55,6 +56,7 @@ class AutobotsObjective(AbstractObjective):
         
         predicted_trajectories = cast(Trajectories, predictions["trajectories"]).trajectories
 
+        loss_weights = extract_scenario_type_weight(scenarios, self._scenario_type_loss_weighting, device=pred_obs.device) # [B]
 
 
         nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,

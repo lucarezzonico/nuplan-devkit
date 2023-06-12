@@ -8,7 +8,7 @@ from nuplan.planning.simulation.callback.abstract_callback import AbstractCallba
 from nuplan.planning.simulation.callback.multi_callback import MultiCallback
 from nuplan.planning.simulation.history.simulation_history import SimulationHistory, SimulationHistorySample
 from nuplan.planning.simulation.history.simulation_history_buffer import SimulationHistoryBuffer
-from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
+from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput, PlannerInputExpert
 from nuplan.planning.simulation.simulation_setup import SimulationSetup
 from nuplan.planning.simulation.trajectory.abstract_trajectory import AbstractTrajectory
 
@@ -134,6 +134,29 @@ class Simulation:
         logger.debug(f"Executing {iteration.index}!")
         return PlannerInput(iteration=iteration, history=self._history_buffer, traffic_light_data=traffic_light_data)
 
+    def get_planner_input_expert(self) -> PlannerInputExpert:
+        """
+        Construct inputs to the planner for the current iteration step
+        :return Inputs to the planner.
+        """
+        if self._history_buffer is None:
+            raise RuntimeError("Simulation was not initialized!")
+
+        if not self.is_simulation_running():
+            raise RuntimeError("Simulation is not running, stepping can not be performed!")
+
+        # Extract current state
+        iteration = self._time_controller.get_iteration()
+
+        # Extract traffic light status data
+        traffic_light_data = self._scenario.get_traffic_light_status_at_iteration(iteration.index)
+        logger.debug(f"Executing {iteration.index}!")
+        return PlannerInputExpert(iteration=iteration,
+                                  history=self._history_buffer,
+                                  
+                                  traffic_light_data=traffic_light_data)
+
+    
     def propagate(self, trajectory: AbstractTrajectory) -> None:
         """
         Propagate the simulation based on planner's trajectory and the inputs to the planner

@@ -1,5 +1,5 @@
 tasks: [train] # [train, simulate, open_nuboard]
-model_name: safepathnet # [vector, autobotego]
+model_name: urban_driver_open_loop_multimodal # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
@@ -14,7 +14,7 @@ nb_workers: 8
 planner: ml_planner  # [simple_planner, ml_planner]
 challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
 scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
-nb_scenarios_per_type: 2 # use 10 scenarios per scenario type
+nb_scenarios_per_type: 5 # use 10 scenarios per scenario type
 scenario_types: [
   starting_left_turn,
   starting_right_turn,
@@ -39,9 +39,8 @@ training_options:
   optimizer.lr: 2e-4
   # +optimizer.eps: 1e-4
   lr_scheduler: multistep_lr # [multistep_lr]
-  lr_scheduler.milestones: [5, 10, 20, 30, 40]
+  lr_scheduler.milestones: [20, 40]
   lr_scheduler.gamma: 0.1
-  callbacks.visualization_callback.all_agents: False
   callbacks.visualization_callback.all_modes: True
   # scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
 

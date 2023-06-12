@@ -31,6 +31,8 @@ class VisualizationCallback(pl.Callback):
         num_train_tiles: int,
         num_val_tiles: int,
         pixel_size: float,
+        all_agents: bool,
+        all_modes: bool,
     ):
         """
         Initialize the class.
@@ -46,9 +48,14 @@ class VisualizationCallback(pl.Callback):
         self.num_train_images = num_train_tiles * images_per_tile
         self.num_val_images = num_val_tiles * images_per_tile
         self.pixel_size = pixel_size
+        self.all_agents = all_agents
+        self.all_modes = all_modes
 
         self.train_dataloader: Optional[torch.utils.data.DataLoader] = None
         self.val_dataloader: Optional[torch.utils.data.DataLoader] = None
+        
+        self.singleagent_multimodal_models: list[str] = ["AutoBotEgo", "UrbanDriverOpenLoopMultimodal"]
+        self.multiagents_multimodal_models: list[str] = ["SafePathNetModel"]
 
     def _initialize_dataloaders(self, datamodule: pl.LightningDataModule) -> None:
         """
@@ -127,11 +134,11 @@ class VisualizationCallback(pl.Callback):
         elif ('vector_map' in features or 'vector_set_map' in features) and (
             'agents' in features or 'generic_agents' in features
         ):
-            image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
+            # image_batch = self._get_images_from_vector_features(features, targets, predictions, pl_module.name())
             
-            if pl_module.name() in ["AutoBotEgo", "SafePathNetModel"]:
-                image_batch_multimodal = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name(),
-                                                                                          all_agents=True, all_trajectories=False)
+            # if pl_module.name() in self.singleagent_multimodal_models:
+            image_batch = self._get_images_from_vector_features_multimodal(features, targets, predictions, pl_module.name(),
+                                                                           all_agents=self.all_agents, all_modes=self.all_modes)
             # expert_image_batch = self._get_expert_images_from_vector_features(features, targets, predictions, pl_module.name())
         else:
             return
@@ -140,8 +147,8 @@ class VisualizationCallback(pl.Callback):
         
         self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
         
-        if pl_module.name() in ["AutoBotEgo", "SafePathNetModel"]:
-            self._save_images(torch.from_numpy(image_batch_multimodal), "multimodal_"+tag, training_step, pl_module)
+        # if pl_module.name() in self.singleagent_multimodal_models:
+        #     self._save_images(torch.from_numpy(image_batch_multimodal), "multimodal_"+tag, training_step, pl_module)
         # self._save_images(torch.from_numpy(expert_image_batch), "expert_"+tag, training_step, pl_module)
 
         for logger in loggers:
@@ -212,18 +219,8 @@ class VisualizationCallback(pl.Callback):
         vector_map_feature = 'vector_map' if 'vector_map' in features else 'vector_set_map'
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
         
-        if model_name == 'UrbanDriverClosedLoopModel':
-            target_traj = targets['trajectory'].unpack()
-            predicted_traj = predictions['trajectory'].unpack()
-        elif model_name == 'SafePathNetModel':
-            target_traj = targets['trajectory'].unpack()
-            # predictions["target"].data # [8, 50, 6, 16, 3]
-            # target_traj = Trajectory(predictions["target"].data[:,0,0,:,:]).unpack() # [8, 16, 3]
-            # predictions["trajectories"].data # [8, 50, 6, 16, 3]
-            predicted_traj = Trajectory(predictions["trajectories"].data[:,0,0,:,:]).unpack() # [8, 16, 3]
-        else:
-            target_traj = targets['trajectory'].unpack()
-            predicted_traj = predictions['trajectory'].unpack()
+        target_traj = targets['trajectory'].unpack()
+        predicted_traj = predictions['trajectory'].unpack()
 
         for vector_map, agents, target_trajectory, predicted_trajectory in zip(
             features[vector_map_feature].unpack(),
@@ -245,7 +242,7 @@ class VisualizationCallback(pl.Callback):
         return np.asarray(images)
     
     def _get_images_from_vector_features_multimodal(
-        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str, all_agents=True, all_trajectories=True
+        self, features: FeaturesType, targets: TargetsType, predictions: TargetsType, model_name: str, all_agents=True, all_modes=True
     ) -> npt.NDArray[np.uint8]:
         """
         Create a list of RGB raster images from a batch of model data of vectormap and agent features.
@@ -260,48 +257,30 @@ class VisualizationCallback(pl.Callback):
         agents_feature = 'agents' if 'agents' in features else 'generic_agents'
         
         predicted_trajs = []
-        if model_name == 'UrbanDriverClosedLoopModel':
-            target_traj = targets['trajectory'].unpack()
-            predicted_trajs = predictions['trajectory'].unpack()
-        elif model_name == 'SafePathNetModel':
+        if model_name in self.multiagents_multimodal_models:
             target_traj = targets['trajectory'].unpack()
             # predicted_trajs = predictions["trajectories"].unpack()
-            # predicted_tensors = list(predictions["target"].data[:,:,:,:5,:].chunk(predictions["target"].data[:,:,:,:5,:].size(0), dim=0)) # to plot all agents targets/pasts
-            predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0))
-            predicted_trajs = [self.compute_trajectories(batch_tensors.squeeze(dim=0), all_agents=all_agents, all_trajectories=all_trajectories)
+            predicted_tensors = list(predictions["past"].data[:,:,:,:5,:].chunk(predictions["past"].data[:,:,:,:5,:].size(0), dim=0)) # to plot all agents targets/pasts
+            # predicted_tensors = list(predictions["future"].data.chunk(predictions["future"].data.size(0), dim=0)) # [8][50, 6, 16, 3]
+            # predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0)) # [8][50, 6, 16, 3]
+            # # list of 8 Trajectories objects containing 50 Trajectory objects of size (6,16,3): [[8]Trajectories([50]Trajectory(6,16,3))]
+            predicted_trajs = [self.compute_trajectories(batch_tensors.squeeze(dim=0), model_name, all_agents=all_agents, all_modes=all_modes)
                                for batch_tensors in predicted_tensors]
             
-            # pred_multimodal_trajectories = Trajectories([t for traj in pred_multimodal_trajectories.trajectories for t in traj.unpack() for i in t.unpack()])
-        elif model_name == 'AutoBotEgo':
+        elif model_name in self.singleagent_multimodal_models:
             target_traj = targets['trajectory'].unpack()
-            
-            # _, sorted_indices = torch.sort(predictions["mode_probs"].data, dim=1)
-            # # for each batch, pick the trajectory with largest probability
-            # trajs=torch.stack([predictions["pred"].data[sorted_indices[i],:,i,:] for i in range(predictions["pred"].data.shape[2])])
-            # trajs_3=trajs[:,:,:,:3]
-            # trajs_3[:,:,:,-1] = 0
-            
-            # ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
-            # predicted_trajs = [Trajectory(data=pred[:, 0]).unpack() for pred in ego_trajs] # ego trajs
-            
-            predicted_trajs = predictions["trajectories"].unpack()
-            
-        else:
+            predicted_trajs = [self.compute_trajectories(pred_traj.data, model_name, all_modes=all_modes) for pred_traj in predictions["trajectories"].trajectories]
+        
+        else: # singleagent unimodal models
             target_traj = targets['trajectory'].unpack()
-            for traj in predictions['trajectories']:
-                predicted_trajs.append(traj.unpack())
-
+            predicted_trajs = Trajectories(predictions['trajectory'].unpack()).unpack()
+        
         for vector_map, agents, target_trajectory, predicted_trajectories in zip(
             features[vector_map_feature].unpack(),
             features[agents_feature].unpack(),
             target_traj,
             predicted_trajs,
         ):
-            # if model_name == 'SafePathNetModel':
-            #     predicted_trajectories = Trajectories([Trajectory(predicted_trajectories.squeeze(dim=0)[a,b,:,:].unsqueeze(dim=0))
-            #                                            for a in range(predicted_trajectories.squeeze(dim=0).shape[0])
-            #                                            for b in range(predicted_trajectories.squeeze(dim=0).shape[1])])
-
             image = get_raster_from_vector_map_with_agents_multimodal(
                 vector_map,
                 agents,
@@ -426,24 +405,44 @@ class VisualizationCallback(pl.Callback):
             'val',
         )
 
+    
     def compute_trajectories(
         self,
         predicted_batch: torch.Tensor,
+        model_name: str,
         all_agents: bool = False,
-        all_trajectories: bool = False,
+        all_modes: bool = False,
     ) -> Trajectories:
-        _, _, num_points, num_features = predicted_batch.size()
+        """
+        Merge number of agents and number of multimodal trajectories dimensions into one.
         
-        # create agents and mutimodal trajectories mask
-        agent_mask = torch.ones_like(predicted_batch)
-        if not all_agents: agent_mask[1:, :, :, :] *= 0
-        traj_mask = torch.ones_like(predicted_batch)
-        if not all_trajectories: traj_mask[:, 1:, :, :] *= 0
-        agent_traj_mask = torch.mul(agent_mask, traj_mask)
-        agent_traj_mask_bool = agent_traj_mask.bool()
+        :param predicted_batch: tensor of shape (num_agents, num_modes, num_points, num_features) or (num_modes, num_points, num_features)
+        :param all_agents: if all agents trajectories should be returned of just the ego's
+        :param all_modes: if all mutilmodal trajectories should be returned of just the most likely
+        :return: a trajectories object containing num_agents trajectory objects of size (num_modes, num_points, num_features)
+        """
         
-        trajs = predicted_batch[agent_traj_mask_bool].view(-1, num_points, num_features)
-        
-        pred_trajs = Trajectories(Trajectory(trajs).unpack())
+        if model_name in self.multiagents_multimodal_models:
+            num_agents, num_modes, num_points, num_features = predicted_batch.size()
+            # create agents and mutimodal trajectories mask
+            agent_mask = torch.ones_like(predicted_batch)
+            if not all_agents: agent_mask[1:, :, :, :] *= 0
+            traj_mask = torch.ones_like(predicted_batch)
+            if not all_modes: traj_mask[:, 1:, :, :] *= 0
+            agent_traj_mask = torch.mul(agent_mask, traj_mask)
+            agent_traj_mask_bool = agent_traj_mask.bool()
+            trajs = predicted_batch[agent_traj_mask_bool].view(-1, num_modes if all_modes else 1, num_points, num_features) # (num_agents or 1, num_modes or 1, num_points, num_features)
+            predicted_tensors = list(trajs.chunk(trajs.size(0), dim=0)) # [50][6, 16, 3]
+            pred_trajs = Trajectories([Trajectory(agent_tensors.squeeze(dim=0)) for agent_tensors in predicted_tensors])
+            # pred_trajs: a list of 50 trajectories, each containing a Trajectory(6, 16, 3)
+        elif model_name in self.singleagent_multimodal_models:
+            num_modes, num_points, num_features = predicted_batch.size()
+            # create mutimodal trajectories mask
+            traj_mask = torch.ones_like(predicted_batch)
+            if not all_modes: traj_mask[1:, :, :] *= 0
+            traj_mask_bool = traj_mask.bool()
+            trajs = predicted_batch[traj_mask_bool].view(-1, num_points, num_features) # (num_modes or 1, num_points, num_features)
+            pred_trajs = Trajectories([Trajectory(trajs)])
+            # pred_trajs: a list of 50 trajectories, each containing a Trajectory(6, 16, 3)
         
         return pred_trajs

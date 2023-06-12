@@ -6,3 +6,6 @@ visualization_callback:
   num_train_tiles: 5  # number of rows of training images
   num_val_tiles: 5  # number of rows of validation images
   pixel_size: 0.1  # [m] pixel size of image
+
+  all_agents: True
+  all_modes: True

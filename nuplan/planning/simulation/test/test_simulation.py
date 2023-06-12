@@ -60,6 +60,7 @@ class TestSimulation(unittest.TestCase):
         )
         stepper.initialize()
         planner_input = stepper.get_planner_input()
+        # planner_input = stepper.get_planner_input_expert()
         self.assertEqual(planner_input.iteration.index, 0)
 
     def test_run_callbacks(self) -> None:
