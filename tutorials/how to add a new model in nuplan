@@ -1,0 +1,15 @@
+
+FILES TO ADD WHEN INTERGATING A NEW MODEL: name
+
+tutorials/config/default_config_name.yaml
+
+nuplan/planning/training/modeling/models/name.py
+nuplan/planning/script/config/common/model/name.yaml
+
+nuplan/planning/training/modeling/objectives/name_objective.py
+nuplan/planning/script/config/training/objective/name_objective.yaml
+
+nuplan/planning/training/modeling/objectives/BUILD -> add name_objective
+
+nuplan/planning/script/experiments/training/training_name_model.yaml
+nuplan/planning/script/config/training/name_training.yaml
