@@ -145,6 +145,7 @@ class VisualizationCallback(pl.Callback):
 
         tag = f'{prefix}_visualization_{batch_idx}'
         
+        # save images to do gifs
         self._save_images(torch.from_numpy(image_batch), tag, training_step, pl_module)
         
         # if pl_module.name() in self.singleagent_multimodal_models:
