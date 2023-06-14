@@ -797,30 +797,30 @@ def get_raster_from_vector_map_with_agents(
 
     # Create map layers
     map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    if vector_map_feature == 'vector_set_map':
-        left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    green_traffic_light_raster = _create_green_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    yellow_traffic_light_raster = _create_yellow_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    red_traffic_light_raster = _create_red_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # if vector_map_feature == 'vector_set_map':
+    #     left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # green_traffic_light_raster = _create_green_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # yellow_traffic_light_raster = _create_yellow_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # red_traffic_light_raster = _create_red_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
     agents_raster = _create_agents_raster(agents, radius, size, bit_shift, pixel_size)
     ego_raster = _create_ego_raster(vehicle_parameters, pixel_size, size)
 
     # Compose and paint image
     image: npt.NDArray[np.uint8] = np.full((size, size, 3), Color.BACKGROUND.value, dtype=np.uint8)
     image[map_raster.nonzero()] = Color.BASELINE_PATHS.value
-    if vector_map_feature == 'vector_set_map':
-        image[left_boundary_raster.nonzero()] = Color.BLUE.value
-        image[right_boundary_raster.nonzero()] = Color.BLUE.value
-        image[stopline_raster.nonzero()] = Color.RED.value
-        image[crosswalk_raster.nonzero()] = Color.YELLOW.value
-        image[route_lanes_raster.nonzero()] = Color.EGO.value
-    image[green_traffic_light_raster.nonzero()] = Color.GREEN.value
-    image[yellow_traffic_light_raster.nonzero()] = Color.ORANGE.value
-    image[red_traffic_light_raster.nonzero()] = Color.RED.value
+    # if vector_map_feature == 'vector_set_map':
+    #     image[left_boundary_raster.nonzero()] = Color.BLUE.value
+    #     image[right_boundary_raster.nonzero()] = Color.BLUE.value
+    #     image[stopline_raster.nonzero()] = Color.RED.value
+    #     image[crosswalk_raster.nonzero()] = Color.YELLOW.value
+    #     image[route_lanes_raster.nonzero()] = Color.EGO.value
+    # image[green_traffic_light_raster.nonzero()] = Color.GREEN.value
+    # image[yellow_traffic_light_raster.nonzero()] = Color.ORANGE.value
+    # image[red_traffic_light_raster.nonzero()] = Color.RED.value
     image[agents_raster.nonzero()] = Color.AGENTS.value
     image[ego_raster.nonzero()] = Color.EGO.value
 
@@ -862,30 +862,30 @@ def get_raster_from_vector_map_with_agents_multimodal(
 
     # Create map layers
     map_raster = _create_map_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    if vector_map_feature == 'vector_set_map':
-        left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
-        route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    green_traffic_light_raster = _create_green_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    yellow_traffic_light_raster = _create_yellow_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
-    red_traffic_light_raster = _create_red_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # if vector_map_feature == 'vector_set_map':
+    #     left_boundary_raster = _create_left_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     right_boundary_raster = _create_right_boundary_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     stopline_raster = _create_stopline_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     crosswalk_raster = _create_crosswalk_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=2)
+    #     route_lanes_raster = _create_route_lanes_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # green_traffic_light_raster = _create_green_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # yellow_traffic_light_raster = _create_yellow_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
+    # red_traffic_light_raster = _create_red_traffic_light_colored_lane_raster(vector_map, radius, size, bit_shift, pixel_size, thickness=4)
     agents_raster = _create_agents_raster(agents, radius, size, bit_shift, pixel_size)
     ego_raster = _create_ego_raster(vehicle_parameters, pixel_size, size)
 
     # Compose and paint image
     image: npt.NDArray[np.uint8] = np.full((size, size, 3), Color.BACKGROUND.value, dtype=np.uint8)
     image[map_raster.nonzero()] = Color.BASELINE_PATHS.value
-    if vector_map_feature == 'vector_set_map':
-        image[left_boundary_raster.nonzero()] = Color.BLUE.value
-        image[right_boundary_raster.nonzero()] = Color.BLUE.value
-        image[stopline_raster.nonzero()] = Color.RED.value
-        image[crosswalk_raster.nonzero()] = Color.YELLOW.value
-        image[route_lanes_raster.nonzero()] = Color.EGO.value
-    image[green_traffic_light_raster.nonzero()] = Color.GREEN.value
-    image[yellow_traffic_light_raster.nonzero()] = Color.ORANGE.value
-    image[red_traffic_light_raster.nonzero()] = Color.RED.value
+    # if vector_map_feature == 'vector_set_map':
+    #     image[left_boundary_raster.nonzero()] = Color.BLUE.value
+    #     image[right_boundary_raster.nonzero()] = Color.BLUE.value
+    #     image[stopline_raster.nonzero()] = Color.RED.value
+    #     image[crosswalk_raster.nonzero()] = Color.YELLOW.value
+    #     image[route_lanes_raster.nonzero()] = Color.EGO.value
+    # image[green_traffic_light_raster.nonzero()] = Color.GREEN.value
+    # image[yellow_traffic_light_raster.nonzero()] = Color.ORANGE.value
+    # image[red_traffic_light_raster.nonzero()] = Color.RED.value
     image[agents_raster.nonzero()] = Color.AGENTS.value
     image[ego_raster.nonzero()] = Color.EGO.value
 
