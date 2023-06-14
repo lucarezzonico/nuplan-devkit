@@ -15,6 +15,12 @@ model_params:
   warmup_num_frames: 10 # "sample" warmup_num_steps by following the model's policy
   discount_factor: 0.8 # discount future timesteps via discount_factor**t
   limit_predicted_yaw: True
+
+  draw_visualizations: False
+  current_task: null  # for the model to know that it is in training or simulation mode
+  log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/urban_driver_closed_loop_with_v_experiment/urban_driver_closed_loop_with_v_model
+  checkpoint_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/urban_driver_closed_loop_with_v_experiment
+
 # Params for features
 feature_params:
   _target_: nuplan.planning.training.modeling.models.urban_driver_closed_loop_with_v_model.UrbanDriverClosedLoopModelFeatureParams

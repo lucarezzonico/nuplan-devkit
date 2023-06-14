@@ -13,6 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from pathlib import Path
+import os
+import datetime
+import cv2
+
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, cast
 
@@ -50,6 +55,9 @@ from nuplan.planning.training.preprocessing.features.tensor_target import Tensor
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from nuplan.planning.training.callbacks.utils.visualization_utils import (
+    get_raster_from_vector_map_with_agents, get_raster_from_vector_map_with_agents_multiple_trajectories
+)
 
 @dataclass
 class UrbanDriverOpenLoopMultimodalModelParams:
@@ -66,6 +74,11 @@ class UrbanDriverOpenLoopMultimodalModelParams:
     num_subgraph_layers: int
     global_head_dropout: float
     num_modes: int
+    
+    draw_visualizations: bool
+    current_task: str  # for the model to know that it is in training or simulation mode
+    log_dir: str
+    checkpoint_dir: str
 
 @dataclass
 class UrbanDriverOpenLoopMultimodalFeatureParams:
@@ -196,6 +209,9 @@ class UrbanDriverOpenLoopMultimodal(TorchModuleWrapper):
         :param feature_params: agent and map feature parameters.
         :param target_params: target parameters.
         """
+        
+        self.img_num = 0
+        
         super().__init__(
             feature_builders=[
                 VectorSetMapFeatureBuilder(
@@ -501,6 +517,27 @@ class UrbanDriverOpenLoopMultimodal(TorchModuleWrapper):
 
         outputs_sorted, classification_sorted = self.sort_predictions(outputs, classification) # [8, 6, 16, 3]
         # self.plot_attention_weights(attn_weights=attns)
+        
+        if self._model_params.draw_visualizations:
+            if self._model_params.current_task == 'training':
+                pass
+            if self._model_params.current_task == 'simulating':
+                if self.img_num == 0:
+                    self.img_folder = f"{str(Path(self._model_params.log_dir).parent)}/images/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+
+                multimodal_traj_objects = trajs.trajectories[0] # in simulation mode, first and only trajectory of the batch
+                image_ndarray = get_raster_from_vector_map_with_agents_multiple_trajectories(
+                    vector_set_map_data.to_device('cpu'),
+                    ego_agent_features.to_device('cpu'),
+                    target_trajectory = None,
+                    predicted_trajectory = multimodal_traj_objects.to_device('cpu'),
+                    pixel_size = 0.1
+                )
+                path = f"{self.img_folder}"
+                if not os.path.exists(path): os.makedirs(path, exist_ok=True)
+                cv2.imwrite(f"{path}/multimodal_vis_{self.img_num:06d}.png", image_ndarray)
+                self.img_num += 1
+                print("SAVED IMG NUM: ", self.img_num)
 
         return {
             "trajectory": traj,

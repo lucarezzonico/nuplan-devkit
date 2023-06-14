@@ -1,30 +1,28 @@
-tasks: [train] # [train, simulate, open_nuboard]
+tasks: [simulate, open_nuboard] # [train, simulate, open_nuboard]
 model_name: urban_driver_open_loop # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 500
-nb_epochs: 1
+nb_scenarios: 200000
+nb_epochs: 40
 batch_size: 8
 lightning_accelerator: ddp_spawn
-nb_workers: 8
+nb_workers: 16
 
 # adapt simulation params
 planner: ml_planner  # [simple_planner, ml_planner]
 challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
 scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
-nb_scenarios_per_type: 5 # use 10 scenarios per scenario type
+nb_scenarios_per_type: 10 # use 10 scenarios per scenario type
 scenario_types: [
-  starting_left_turn,
-  starting_right_turn,
-  
   starting_straight_traffic_light_intersection_traversal,
   high_lateral_acceleration,
   changing_lane,
   high_magnitude_speed,
   low_magnitude_speed,
-
+  starting_left_turn,
+  starting_right_turn,
   stopping_with_lead,
   following_lane_with_lead,
   near_multiple_vehicles,
@@ -34,17 +32,45 @@ scenario_types: [
   stationary_in_traffic
 ]
 
+# for open-loop simulation metrics summary
+selected_ol_stats: [planner_expert_ADE_horizon_3,
+                    planner_expert_FDE_horizon_3,
+                    planner_expert_FHE_horizon_3,
+                    planner_expert_AHE_horizon_3,
+                    planner_expert_ADE_horizon_8,
+                    planner_expert_FDE_horizon_8,
+                    planner_expert_FHE_horizon_8,
+                    planner_expert_AHE_horizon_8]
+# for closed-loop simulation metrics summary
+selected_cl_stats: [ego_is_comfortable,
+                    drivable_area_compliance,
+                    corners_in_drivable_area,
+                    abs_ego_lon_jerk_within_bounds,
+                    abs_ego_lon_acceleration_within_bounds,
+                    time_to_collision_within_bound,
+                    speed_limit_compliance,
+                    abs_ego_jerk_within_bounds,
+                    ego_expert_progress_along_route_ratio, # unit: ratio # normalize
+                    no_ego_at_fault_collisions,
+                    abs_ego_lat_acceleration_within_bounds,
+                    ego_is_making_progress,
+                    abs_ego_yaw_acceleration_within_bounds,
+                    ego_lane_change_fail_rate_below_threshold,
+                    abs_ego_yaw_rate_within_bounds,]
+
 training_options:
   optimizer: adamw
   optimizer.lr: 2e-4
   # +optimizer.eps: 1e-4
   lr_scheduler: multistep_lr # [multistep_lr]
-  lr_scheduler.milestones: [20, 40]
-  lr_scheduler.gamma: 0.1
+  lr_scheduler.milestones: [10, 20, 30]
+  lr_scheduler.gamma: 0.2
   # scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
 
 simulation_options:
   scenario_filter.scenario_types: ${scenario_types}
+  main_callback.metric_summary_callback.selected_ol_stats: ${selected_ol_stats}
+  main_callback.metric_summary_callback.selected_cl_stats: ${selected_cl_stats}
   # scenario_filter.log_names: [2021.08.24.17.34.27_veh-45_01118_01346]
   # selected_simulation_metrics: [ego_acceleration_statistics, ego_jerk_statistics]
 
@@ -91,6 +117,7 @@ simulation_params:
   scenario_builder: ${dataset}
   scenario_filter: ${scenarios}
   scenario_filter.num_scenarios_per_type: ${nb_scenarios_per_type}
+  main_callback.metric_summary_callback.model_name: ${model_name}_model
 
 ml_simulation_params:
   model: ${model}

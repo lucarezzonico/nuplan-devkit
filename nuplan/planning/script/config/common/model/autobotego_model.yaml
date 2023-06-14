@@ -24,8 +24,8 @@ model_params:
 
   draw_visualizations: False
   current_task: null  # for the model to know that it is in training or simulation mode
-  log_dir: /data1/nuplan/luca/exp/training/autobotego_experiment/autobotego_model
-  checkpoint_dir: /data1/nuplan/luca/exp/training/autobotego_experiment
+  log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/autobotego_experiment/autobotego_model
+  checkpoint_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/autobotego_experiment
 
 # Params for features
 feature_params:

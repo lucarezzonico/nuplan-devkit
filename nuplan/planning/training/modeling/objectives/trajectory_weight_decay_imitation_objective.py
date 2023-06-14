@@ -45,7 +45,7 @@ class TrajectoryWeightDecayImitationObjective(AbstractObjective):
         """Implemented. See interface."""
         return ["trajectory"]
 
-    def compute_unimodal(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
+    def compute(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
         """
         Computes the objective's loss given the ground truth targets and the model's predictions
         and weights it based on a fixed weight factor.
@@ -131,7 +131,7 @@ class TrajectoryWeightDecayImitationObjective(AbstractObjective):
 
         return err, inds
         
-    def compute(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
+    def compute_multimodal(self, predictions: FeaturesType, targets: TargetsType, scenarios: ScenarioListType) -> torch.Tensor:
         # Unpack arguments
         traj = cast(TensorTarget, predictions['multimodal_outputs']).data
         log_probs = cast(TensorTarget, predictions['probs']).data

@@ -66,6 +66,11 @@ class UrbanDriverOpenLoopModelParams:
 
     num_modes: int
     
+    draw_visualizations: bool
+    current_task: str  # for the model to know that it is in training or simulation mode
+    log_dir: str
+    checkpoint_dir: str
+    
 @dataclass
 class UrbanDriverOpenLoopModelFeatureParams:
     """

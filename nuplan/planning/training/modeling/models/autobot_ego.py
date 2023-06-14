@@ -416,7 +416,7 @@ class AutoBotEgo(TorchModuleWrapper):
         self.prob_predictor = init_(nn.Linear(self._model_params.d_k, 1))
 
         self.train()
-        
+                
     def name(self) -> str:
         return self.__class__.__name__
     

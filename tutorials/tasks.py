@@ -44,7 +44,8 @@ class Tasks():
         # Run the training loop, optionally inspect training artifacts through tensorboard (above cell)
         engine = main_train(cfg)
         
-        self.scenario_visualzation(engine)
+        # save gif after training
+        # self.scenario_visualzation(engine)
 
         
     def simulate(self, cfg: DictConfig) -> str:
@@ -84,8 +85,18 @@ class Tasks():
         
             # Simulation folder for visualization in nuBoard
             simulation_folder = cfg.output_dir
+            
+        # self.plt_radar_data()
         
         return simulation_folder
+    
+    # def plt_radar_data(self):
+    #     self._metric_statistics_dataframes = self._read_metric_parquet_files(
+    #         metric_save_path=self._metric_save_path,
+    #         metric_reader=metric_statistics_reader,
+    #     )
+        
+        
 
 
     def open_nuboard(self, cfg: DictConfig, simulation_folders: List[str]) -> None:

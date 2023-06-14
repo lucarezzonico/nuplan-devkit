@@ -16,15 +16,13 @@ challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, 
 scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
 nb_scenarios_per_type: 5 # use 10 scenarios per scenario type
 scenario_types: [
-  starting_left_turn,
-  starting_right_turn,
-  
   starting_straight_traffic_light_intersection_traversal,
   high_lateral_acceleration,
   changing_lane,
   high_magnitude_speed,
   low_magnitude_speed,
-
+  starting_left_turn,
+  starting_right_turn,
   stopping_with_lead,
   following_lane_with_lead,
   near_multiple_vehicles,

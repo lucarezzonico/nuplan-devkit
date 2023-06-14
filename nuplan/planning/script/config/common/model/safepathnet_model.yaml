@@ -26,6 +26,11 @@ model_params:
   perturbation_min_displacement_m: 1.2
   cost_prob_coeff: 0.1
 
+  draw_visualizations: False
+  current_task: null  # for the model to know that it is in training or simulation mode
+  log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/safepathnet_experiment/safepathnet_model
+  checkpoint_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/safepathnet_experiment
+
 # Params for features
 feature_params:
   _target_: nuplan.planning.training.modeling.models.safepathnet_model.SafePathNetModelFeatureParams
@@ -49,7 +54,7 @@ feature_params:
   history_num_frames_ego: 4      # <= past_time_steps
   history_num_frames_agents: 4   # <= past_time_steps
   # Agent features
-  agent_features: [VEHICLE]
+  agent_features: [VEHICLE, BICYCLE, PEDESTRIAN]
   ego_dimension: 3
   agent_dimension: 8
   max_agents: 50

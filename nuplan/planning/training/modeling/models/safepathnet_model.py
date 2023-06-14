@@ -94,6 +94,11 @@ class SafePathNetModelParams:
     use_gaussian_perturbation: bool = False
     perturbation_min_displacement_m: float = 1.2
     cost_prob_coeff: float = 0.1
+    
+    draw_visualizations: bool
+    current_task: str  # for the model to know that it is in training or simulation mode
+    log_dir: str
+    checkpoint_dir: str
 
 
 @dataclass

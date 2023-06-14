@@ -38,7 +38,7 @@ cache:
   cache_path: ${oc.env:NUPLAN_EXP_ROOT}/cache         # Local/remote path to store all preprocessed artifacts from the data pipeline
   use_cache_without_dataset: false                    # Load all existing features from a local/remote cache without loading the dataset
   force_feature_computation: true                    # Recompute features even if a cache exists
-  cleanup_cache: false                                # Cleanup cached data in the cache_path, this ensures that new data are generated if the same cache_path is passed
+  cleanup_cache: true                                # Cleanup cached data in the cache_path, this ensures that new data are generated if the same cache_path is passed
 
 # Mandatory parameters
 py_func: ???                                          # Function to be run inside main (can be "train", "test", "cache")
