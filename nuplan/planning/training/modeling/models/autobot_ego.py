@@ -268,11 +268,12 @@ class AutoBotEgo(TorchModuleWrapper):
     '''
     AutoBot-Ego Class.
     '''
-    def __init__(self, 
+    def __init__(
+        self, 
         model_params: AutoBotEgoModelParams,
         feature_params: AutoBotEgoFeatureParams,
         target_params: AutoBotEgoTargetParams,
-        ):
+    ):
         """
         :param vector_map_feature_radius: The query radius scope relative to the current ego-pose.
         :param vector_map_connection_scales: The hops of lane neighbors to extract, default 1 hop
@@ -312,7 +313,6 @@ class AutoBotEgo(TorchModuleWrapper):
         # )
         
         self.img_num = 0
-        # self.img_folder = f"{str(Path(model_params.log_dir).parent)}/images/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         
         super().__init__(
             feature_builders=[
@@ -324,7 +324,7 @@ class AutoBotEgo(TorchModuleWrapper):
                     interpolation_method=feature_params.interpolation_method,
                 ),
                 GenericAgentsFeatureBuilder(feature_params.agent_features, feature_params.past_trajectory_sampling),
-                GenericExpertFeatureBuilder(feature_params.agent_features, target_params.expert_trajectory_sampling),
+                # GenericExpertFeatureBuilder(feature_params.agent_features, target_params.expert_trajectory_sampling),
             ],
             target_builders=[
                 EgoTrajectoryTargetBuilder(target_params.future_trajectory_sampling),

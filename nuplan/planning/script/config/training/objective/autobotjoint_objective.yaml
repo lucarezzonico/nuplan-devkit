@@ -1,0 +1,7 @@
+autobotjoint_objective:
+  _target_: nuplan.planning.training.modeling.objectives.autobotjoint_objective.AutobotsObjective
+  _convert_: 'all'
+
+  entropy_weight: 40
+  kl_weight: 20
+  use_FDEADE_aux_loss: true

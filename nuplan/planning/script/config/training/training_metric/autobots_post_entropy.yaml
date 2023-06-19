@@ -1,7 +1,0 @@
-autobots_post_entropy:
-  _target_: nuplan.planning.training.modeling.metrics.autobots_metrics.AutobotsPostEntropy
-  _convert_: 'all'
-
-  entropy_weight: 40
-  kl_weight: 20
-  use_FDEADE_aux_loss: true

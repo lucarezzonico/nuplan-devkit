@@ -59,11 +59,11 @@ class AutobotsObjective(AbstractObjective):
         loss_weights = extract_scenario_type_weight(scenarios, self._scenario_type_loss_weighting, device=pred_obs.device) # [B]
 
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes_joint(pred_obs, targets_xy[:, :, :2], mode_probs,
                                                                                    entropy_weight=self.entropy_weight,
                                                                                    kl_weight=self.kl_weight,
                                                                                    use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
-
+        
         total_loss=nll_loss + adefde_loss + kl_loss
         # how to implement the gradient clip?
 

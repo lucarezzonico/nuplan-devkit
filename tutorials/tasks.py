@@ -202,13 +202,12 @@ class Tasks():
                     simulation_folders.append(simulation_folder)
 
         if OPEN_NUBOARD: self.open_nuboard(cfg, simulation_folders)
-        
-        
 
 
 if __name__ == '__main__':
     task = Tasks()
     cfgs = task.load_cfgs("default_config_autobotego")
+    # cfgs = task.load_cfgs("default_config_autobotjoint")
     # cfgs = task.load_cfgs("default_config_urban_driver_open_loop")
     # cfgs = task.load_cfgs("default_config_urban_driver_open_loop_multimodal")
     # cfgs = task.load_cfgs("default_config_urban_driver_closed_loop")

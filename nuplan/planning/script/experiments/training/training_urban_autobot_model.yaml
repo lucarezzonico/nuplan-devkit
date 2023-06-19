@@ -8,7 +8,7 @@ defaults:
       - kinematic_history_generic_agent_augmentation
       - generic_agent_dropout_augmentation
   - override /objective:
-      - autobots_objective
+      - autobotego_objective
   - override /splitter: nuplan
   - override /model: urban_autobot_model
   - override /scenario_filter: training_scenarios
@@ -17,7 +17,7 @@ defaults:
       - avg_heading_error
       - final_displacement_error
       - final_heading_error
-      - autobots_nll_loss
-      - autobots_kl_loss
-      - autobots_post_entropy
-      - autobots_adefde_loss
+      - autobotego_nll_loss
+      - autobotego_kl_loss
+      - autobotego_post_entropy
+      - autobotego_adefde_loss

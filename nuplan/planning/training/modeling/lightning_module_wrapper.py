@@ -161,7 +161,7 @@ class LightningModuleWrapper(pl.LightningModule):
             self.count_val_step = 0
             self.count_train_step += 1
             self.count_train_step_total += 1
-            logger.info(f'Training Epoch {self.count_epoch}, Loss: {loss}, Step: {self.count_train_step}, Total Steps: {self.count_train_step_total}')
+            # logger.info(f'Training Epoch {self.count_epoch}, Loss: {loss}, Step: {self.count_train_step}, Total Steps: {self.count_train_step_total}')
         
         if prefix == 'val' and self.previous_prefix == 'train':
             self.previous_prefix = 'val'
@@ -177,7 +177,7 @@ class LightningModuleWrapper(pl.LightningModule):
             self.count_train_step = 0
             self.count_val_step += 1
             self.count_val_step_total += 1
-            logger.info(f'Validation Epoch {self.count_epoch}, Loss: {loss}, Step: {self.count_val_step}, Total Steps: {self.count_val_step_total}')
+            # logger.info(f'Validation Epoch {self.count_epoch}, Loss: {loss}, Step: {self.count_val_step}, Total Steps: {self.count_val_step_total}')
         
     def training_step(self, batch: Tuple[FeaturesType, TargetsType, ScenarioListType], batch_idx: int) -> torch.Tensor:
         """

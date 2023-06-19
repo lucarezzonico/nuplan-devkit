@@ -1,5 +1,5 @@
 # @package _global_
-job_name: autobotego_model
+job_name: autobotjoint_model
 py_func: train
 objective_aggregate_mode: mean
 
@@ -10,16 +10,16 @@ defaults:
       - kinematic_history_generic_agent_augmentation
       - generic_agent_dropout_augmentation
   - override /objective:
-      - autobotego_objective
+      - autobotjoint_objective
   - override /splitter: nuplan
-  - override /model: autobotego_model
+  - override /model: autobotjoint_model
   - override /scenario_filter: training_scenarios
   - override /training_metric:
       - avg_displacement_error
       - avg_heading_error
       - final_displacement_error
       - final_heading_error
-      - autobotego_nll_loss
-      - autobotego_kl_loss
-      - autobotego_post_entropy
-      - autobotego_adefde_loss
+      - autobotjoint_nll_loss
+      - autobotjoint_kl_loss
+      - autobotjoint_post_entropy
+      - autobotjoint_adefde_loss

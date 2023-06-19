@@ -1,0 +1,7 @@
+autobotego_nll_loss:
+  _target_: nuplan.planning.training.modeling.metrics.autobotego_metrics.AutobotsNllLoss
+  _convert_: 'all'
+
+  entropy_weight: 40
+  kl_weight: 20
+  use_FDEADE_aux_loss: true

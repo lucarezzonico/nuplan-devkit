@@ -1,11 +1,11 @@
 tasks: [train] # [train, simulate, open_nuboard]
-model_name: autobotego # [vector, autobotego]
+model_name: autobotjoint # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 200000
-nb_epochs: 30
+nb_scenarios: 500
+nb_epochs: 1
 batch_size: 8
 lightning_accelerator: ddp_spawn
 nb_workers: 8
