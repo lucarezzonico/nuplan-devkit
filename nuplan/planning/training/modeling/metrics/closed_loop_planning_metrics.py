@@ -38,8 +38,8 @@ class AverageDisplacementError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["ts_traj"]
-        targets_trajectory: Trajectory = predictions["target"]
+        predicted_trajectory: Trajectory = predictions["trajectory"]
+        targets_trajectory: Trajectory = targets["trajectory"]
 
         return torch.norm(predicted_trajectory.xy - targets_trajectory.xy, dim=-1).mean()
 
@@ -75,8 +75,8 @@ class FinalDisplacementError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["ts_traj"]
-        targets_trajectory: Trajectory = predictions["target"]
+        predicted_trajectory: Trajectory = predictions["trajectory"]
+        targets_trajectory: Trajectory = targets["trajectory"]
 
         return torch.norm(predicted_trajectory.terminal_position - targets_trajectory.terminal_position, dim=-1).mean()
 
@@ -112,8 +112,8 @@ class AverageHeadingError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["ts_traj"]
-        targets_trajectory: Trajectory = predictions["target"]
+        predicted_trajectory: Trajectory = predictions["trajectory"]
+        targets_trajectory: Trajectory = targets["trajectory"]
 
         errors = torch.abs(predicted_trajectory.heading - targets_trajectory.heading)
         return torch.atan2(torch.sin(errors), torch.cos(errors)).mean()
@@ -150,8 +150,8 @@ class FinalHeadingError(AbstractTrainingMetric):
         :param targets: ground truth targets from the dataset
         :return: metric scalar tensor
         """
-        predicted_trajectory: Trajectory = predictions["ts_traj"]
-        targets_trajectory: Trajectory = predictions["target"]
+        predicted_trajectory: Trajectory = predictions["trajectory"]
+        targets_trajectory: Trajectory = targets["trajectory"]
 
         errors = torch.abs(predicted_trajectory.terminal_heading - targets_trajectory.terminal_heading)
         return torch.atan2(torch.sin(errors), torch.cos(errors)).mean()

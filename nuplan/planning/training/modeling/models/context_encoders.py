@@ -106,9 +106,11 @@ class MapEncoderPts(nn.Module):
 
         self.road_pts_lin = nn.Sequential(init_(nn.Linear(map_attr, self.d_k)))
         
+        ########### begin of positional encoding ###########
         # self.positional_encoding = LearntPositionalEncoding(d_model=self.d_k, dropout=self.dropout)
         self.positional_encoding = PositionalEncoding(d_model=self.d_k, dropout=self.dropout)
-        
+        ########### end of positional encoding ###########
+
         self.road_pts_attn_layer = nn.MultiheadAttention(self.d_k, num_heads=8, dropout=self.dropout)
         self.norm1 = nn.LayerNorm(self.d_k, eps=1e-5)
         self.norm2 = nn.LayerNorm(self.d_k, eps=1e-5)
@@ -136,12 +138,14 @@ class MapEncoderPts(nn.Module):
         P = roads.shape[2]
         road_segment_mask, road_pts_mask = self.get_road_pts_mask(roads)
         road_pts_feats = self.road_pts_lin(roads[:, :, :, :self.map_attr]).view(B*S, P, -1).permute(1, 0, 2)
-       # road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).view(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
-        road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).permute(1, 0, 2, 3).reshape(S, B*P, -1) # (S, B*P, d_k)
-
-        road_pts_feats = self.positional_encoding(road_pts_feats_original)
-        road_pts_feats = road_pts_feats.view(S, B, P, -1).permute(1, 0, 2, 3).reshape(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
-
+        
+        ########### begin of positional encoding ###########
+        # # road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).view(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
+        # road_pts_feats_original = self.road_pts_lin(roads[:, :, :, :self.map_attr]).permute(1, 0, 2, 3).reshape(S, B*P, -1) # (S, B*P, d_k)
+        # road_pts_feats = self.positional_encoding(road_pts_feats_original)
+        # road_pts_feats = road_pts_feats.view(S, B, P, -1).permute(1, 0, 2, 3).reshape(B*S, P, -1).permute(1, 0, 2) # (P, B*S, d_k)
+        ########### end of positional encoding ###########
+        
         # Combining information from each road segment using attention with agent contextual embeddings as queries.
         agents_emb = agents_emb[-1].unsqueeze(2).repeat(1, 1, S, 1).view(-1, self.d_k).unsqueeze(0)
         road_seg_emb = self.road_pts_attn_layer(query=agents_emb, key=road_pts_feats, value=road_pts_feats,

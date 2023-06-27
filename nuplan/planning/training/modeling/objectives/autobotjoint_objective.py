@@ -53,13 +53,13 @@ class AutobotsObjective(AbstractObjective):
         pred_obs = cast(TensorTarget, predictions["pred"]).data
         mode_probs = cast(TensorTarget, predictions["mode_probs"]).data
         targets_xy = cast(Trajectory, targets["trajectory"]).data
+        targets_xy_agents = cast(Trajectory, targets["agent_trajectories"]).data
         
-        predicted_trajectories = cast(Trajectories, predictions["trajectories"]).trajectories
-
         loss_weights = extract_scenario_type_weight(scenarios, self._scenario_type_loss_weighting, device=pred_obs.device) # [B]
 
-
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes_joint(pred_obs, targets_xy[:, :, :2], mode_probs,
+        num_agents = pred_obs.shape[3]-1
+        targets_xy_fake = targets_xy.unsqueeze(dim=2).repeat(1, 1, num_agents, 1)
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes_joint(pred_obs, targets_xy[:, :, :2], targets_xy_fake[:, :, :, :2], mode_probs,
                                                                                    entropy_weight=self.entropy_weight,
                                                                                    kl_weight=self.kl_weight,
                                                                                    use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)

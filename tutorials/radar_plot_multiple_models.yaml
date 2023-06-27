@@ -1,24 +1,50 @@
 
 multiple_models:
-  output_dir: ${oc.env:NUPLAN_EXP_ROOT}/simulation
+
+  model_names: [
+    'AutoBotEgo map pos enc',
+    'AutoBotEgo angle pred',
+    'Urban Driver Closed-Loop',
+    'Urban Driver Closed-Loop with vel',
+    # 'Urban DrivKer Open-Loop',
+  ]
+
   # directories of simulated models to load
   # same simulation conditions are needed:
   # - don't mix open-loop and closed-loop results
   # - same scenario_types have to be simulated, but a different nb_scenios_per_type is allowed
-  # models_dirs: [
-  #   autobotego_experiment/open_loop_boxes/2023.06.12.18.36.56_3_radar_plots,
-  #   urban_driver_open_loop_experiment/open_loop_boxes/2023.06.13.15.44.17,
-  #   urban_driver_open_loop_multimodal_experiment/open_loop_boxes/2023.06.13.16.46.10,
-  # ]
-  models_dirs: [
-    urban_driver_open_loop_experiment/open_loop_boxes/2023.06.14.11.58.16,
-    urban_driver_open_loop_experiment/open_loop_boxes/2023.06.14.12.16.31,
+  
+  # # open-loop models
+  open_loop_model_dirs: [
+    training/autobotego_experiment/autobotego_model/2023.06.19.21.32.35_final_200000sc_map_pos_enc/simulation/autobotego_experiment/open_loop_boxes/2023.06.23.23.28.16_20sc,
+    training/autobotego_experiment/autobotego_model/2023.06.25.14.45.57_final_200000sc_angle_pred/simulation/autobotego_experiment/open_loop_boxes/2023.06.26.08.23.02_20sc,
+    training/urban_driver_closed_loop_experiment/urban_driver_closed_loop_model/2023.06.20.11.49.56_final_200000sc/simulation/urban_driver_closed_loop_experiment/open_loop_boxes/2023.06.23.23.50.41_20sc,
+    training/urban_driver_closed_loop_with_v_experiment/urban_driver_closed_loop_with_v_model/2023.06.21.16.02.35_final_200000sc/simulation/urban_driver_closed_loop_with_v_experiment/open_loop_boxes/2023.06.24.01.07.53_20sc,
+    # simulation/urban_driver_open_loop_experiment/open_loop_boxes/2023.05.05.14.22.43_best,
+    # training/urban_driver_open_loop_experiment/urban_driver_open_loop_model/2023.06.26.17.20.53_final_200000sc/simulation/urban_driver_open_loop_experiment/open_loop_boxes/2023.06.27.09.37.14_20sc,
+  ]
+  
+  # # closed-loop non-reactive models
+  closed_loop_nonreactive_model_dirs: [
+    training/autobotego_experiment/autobotego_model/2023.06.19.21.32.35_final_200000sc_map_pos_enc/simulation/autobotego_experiment/closed_loop_nonreactive_agents/2023.06.24.02.25.02_20sc,
+    training/autobotego_experiment/autobotego_model/2023.06.25.14.45.57_final_200000sc_angle_pred/simulation/autobotego_experiment/closed_loop_nonreactive_agents/2023.06.26.08.49.14_20sc,
+    training/urban_driver_closed_loop_experiment/urban_driver_closed_loop_model/2023.06.20.11.49.56_final_200000sc/simulation/urban_driver_closed_loop_experiment/closed_loop_nonreactive_agents/2023.06.24.04.47.25_20sc,
+    training/urban_driver_closed_loop_with_v_experiment/urban_driver_closed_loop_with_v_model/2023.06.21.16.02.35_final_200000sc/simulation/urban_driver_closed_loop_with_v_experiment/closed_loop_nonreactive_agents/2023.06.24.07.51.52_20sc,
   ]
 
+  # # closed-loop reactive models
+  closed_loop_reactive_model_dirs: [
+    training/autobotego_experiment/autobotego_model/2023.06.19.21.32.35_final_200000sc_map_pos_enc/simulation/autobotego_experiment/closed_loop_reactive_agents/2023.06.24.10.57.50_20sc,
+    training/autobotego_experiment/autobotego_model/2023.06.25.14.45.57_final_200000sc_angle_pred/simulation/autobotego_experiment/closed_loop_reactive_agents/2023.06.26.11.08.38_20sc,
+    training/urban_driver_closed_loop_experiment/urban_driver_closed_loop_model/2023.06.20.11.49.56_final_200000sc/simulation/urban_driver_closed_loop_experiment/closed_loop_reactive_agents/2023.06.24.13.24.02_20sc,
+    training/urban_driver_closed_loop_with_v_experiment/urban_driver_closed_loop_with_v_model/2023.06.21.16.02.35_final_200000sc/simulation/urban_driver_closed_loop_with_v_experiment/closed_loop_reactive_agents/2023.06.24.16.30.58_20sc,
+  ]
+
+
 metric_summary_callback:
-  metric_save_path: ${output_dir}/${metric_dir}       # Path to saved metric files
-  metric_aggregator_save_path: ${aggregator_save_path} # Path to saved aggregated files
-  summary_output_path: ${output_dir}/summary
+  metric_save_path: null       # Path to saved metric files
+  metric_aggregator_save_path: null # Path to saved aggregated files
+  summary_output_path: null
   num_bins: 20
   pdf_file_name: 'summary.pdf'
 
@@ -29,294 +55,323 @@ metric_summary_callback:
   max_average_heading_error_threshold: 0.8  # [rad]
   max_final_heading_error_threshold: 0.8    # [rad]
 
-  selected_ol_stats: [planner_expert_ADE_horizon_3,
-                      planner_expert_FDE_horizon_3,
-                      planner_expert_FHE_horizon_3,
-                      planner_expert_AHE_horizon_3,
-                      planner_expert_ADE_horizon_8,
-                      planner_expert_FDE_horizon_8,
-                      planner_expert_FHE_horizon_8,
-                      planner_expert_AHE_horizon_8,]
-  selected_cl_stats: [ego_is_comfortable,
-                      drivable_area_compliance,
-                      corners_in_drivable_area,
-                      abs_ego_lon_jerk_within_bounds,
-                      abs_ego_lon_acceleration_within_bounds,
-                      time_to_collision_within_bound,
-                      speed_limit_compliance,
-                      abs_ego_jerk_within_bounds,
-                      ego_expert_progress_along_route_ratio, # unit: ratio # normalize
-                      no_ego_at_fault_collisions,
-                      abs_ego_lat_acceleration_within_bounds,
-                      ego_is_making_progress,
-                      abs_ego_yaw_acceleration_within_bounds,
-                      ego_lane_change_fail_rate_below_threshold,
-                      abs_ego_yaw_rate_within_bounds,]
+  selected_ol_stats: [
+    planner_miss_rate_horizon_3,
+    planner_miss_rate_horizon_5,
+    planner_miss_rate_horizon_8,
+    planner_miss_rate_within_bound,
+    planner_expert_ADE_horizon_3,
+    planner_expert_ADE_horizon_5,
+    planner_expert_ADE_horizon_8,
+    planner_expert_average_l2_error_within_bound,
+    avg_planner_expert_ADE_over_all_horizons,
+    planner_expert_FDE_horizon_3,
+    planner_expert_FDE_horizon_5,
+    planner_expert_FDE_horizon_8,
+    planner_expert_final_l2_error_within_bound,
+    avg_planner_expert_FDE_over_all_horizons,
+    planner_expert_FHE_horizon_3,
+    planner_expert_FHE_horizon_5,
+    planner_expert_FHE_horizon_8,
+    planner_expert_final_heading_error_within_bound,
+    avg_planner_expert_FHE_over_all_horizons,
+    planner_expert_AHE_horizon_3,
+    planner_expert_AHE_horizon_5,
+    planner_expert_AHE_horizon_8,
+    planner_expert_average_heading_error_within_bound,
+    avg_planner_expert_AHE_over_all_horizons,
+  ]
+  selected_cl_stats: [
+    ego_is_comfortable,
+    drivable_area_compliance,
+    # corners_in_drivable_area,
+    abs_ego_lon_jerk_within_bounds,
+    abs_ego_lon_acceleration_within_bounds,
+    time_to_collision_within_bound,
+    speed_limit_compliance,
+    abs_ego_jerk_within_bounds,
+    ego_expert_progress_along_route_ratio, # unit: ratio # normalize
+    no_ego_at_fault_collisions,
+    abs_ego_lat_acceleration_within_bounds,
+    ego_is_making_progress,
+    abs_ego_yaw_acceleration_within_bounds,
+    ego_lane_change_fail_rate_below_threshold,
+    abs_ego_yaw_rate_within_bounds,
+  ]
 
-  ol_stats:
-    planner_miss_rate_horizon_3:
-      idx: 0
-      unit: ratio
-    planner_miss_rate_horizon_5:
-      idx: 1
-      unit: ratio
-    planner_miss_rate_horizon_8:
-      idx: 2
-      unit: ratio
-    planner_miss_rate_within_bound:
-      idx: 3
-      unit: boolean
-    planner_expert_ADE_horizon_3:
-      idx: 4
-      unit: meter
-    planner_expert_ADE_horizon_5:
-      idx: 5
-      unit: meter
-    planner_expert_ADE_horizon_8:
-      idx: 6
-      unit: meter
-    planner_expert_average_l2_error_within_bound:
-      idx: 7
-      unit: boolean
-    avg_planner_expert_ADE_over_all_horizons:
-      idx: 8
-      unit: meter
-    planner_expert_FDE_horizon_3:
-      idx: 9
-      unit: meter
-    planner_expert_FDE_horizon_5:
-      idx: 10
-      unit: meter
-    planner_expert_FDE_horizon_8:
-      idx: 11
-      unit: meter
-    planner_expert_final_l2_error_within_bound:
-      idx: 12
-      unit: boolean
-    avg_planner_expert_FDE_over_all_horizons:
-      idx: 13
-      unit: meter
-    planner_expert_FHE_horizon_3:
-      idx: 14
-      unit: radian
-    planner_expert_FHE_horizon_5:
-      idx: 15
-      unit: radian
-    planner_expert_FHE_horizon_8:
-      idx: 16
-      unit: radian
-    planner_expert_final_heading_error_within_bound:
-      idx: 17
-      unit: boolean
-    avg_planner_expert_FHE_over_all_horizons:
-      idx: 18
-      unit: radian
-    planner_expert_AHE_horizon_3:
-      idx: 19
-      unit: radian
-    planner_expert_AHE_horizon_5:
-      idx: 20
-      unit: radian
-    planner_expert_AHE_horizon_8:
-      idx: 21
-      unit: radian
-    planner_expert_average_heading_error_within_bound:
-      idx: 22
-      unit: boolean
-    avg_planner_expert_AHE_over_all_horizons:
-      idx: 23
-      unit: radian
-    all:
-      idx: 24
-      unit: scores
+  # ol_stats:
+  #   planner_miss_rate_horizon_3:
+  #     idx: 0
+  #     unit: ratio
+  #   planner_miss_rate_horizon_5:
+  #     idx: 1
+  #     unit: ratio
+  #   planner_miss_rate_horizon_8:
+  #     idx: 2
+  #     unit: ratio
+  #   planner_miss_rate_within_bound:
+  #     idx: 3
+  #     unit: boolean
+  #   planner_expert_ADE_horizon_3:
+  #     idx: 4
+  #     unit: meter
+  #   planner_expert_ADE_horizon_5:
+  #     idx: 5
+  #     unit: meter
+  #   planner_expert_ADE_horizon_8:
+  #     idx: 6
+  #     unit: meter
+  #   planner_expert_average_l2_error_within_bound:
+  #     idx: 7
+  #     unit: boolean
+  #   avg_planner_expert_ADE_over_all_horizons:
+  #     idx: 8
+  #     unit: meter
+  #   planner_expert_FDE_horizon_3:
+  #     idx: 9
+  #     unit: meter
+  #   planner_expert_FDE_horizon_5:
+  #     idx: 10
+  #     unit: meter
+  #   planner_expert_FDE_horizon_8:
+  #     idx: 11
+  #     unit: meter
+  #   planner_expert_final_l2_error_within_bound:
+  #     idx: 12
+  #     unit: boolean
+  #   avg_planner_expert_FDE_over_all_horizons:
+  #     idx: 13
+  #     unit: meter
+  #   planner_expert_FHE_horizon_3:
+  #     idx: 14
+  #     unit: radian
+  #   planner_expert_FHE_horizon_5:
+  #     idx: 15
+  #     unit: radian
+  #   planner_expert_FHE_horizon_8:
+  #     idx: 16
+  #     unit: radian
+  #   planner_expert_final_heading_error_within_bound:
+  #     idx: 17
+  #     unit: boolean
+  #   avg_planner_expert_FHE_over_all_horizons:
+  #     idx: 18
+  #     unit: radian
+  #   planner_expert_AHE_horizon_3:
+  #     idx: 19
+  #     unit: radian
+  #   planner_expert_AHE_horizon_5:
+  #     idx: 20
+  #     unit: radian
+  #   planner_expert_AHE_horizon_8:
+  #     idx: 21
+  #     unit: radian
+  #   planner_expert_average_heading_error_within_bound:
+  #     idx: 22
+  #     unit: boolean
+  #   avg_planner_expert_AHE_over_all_horizons:
+  #     idx: 23
+  #     unit: radian
+  #   all:
+  #     idx: 24
+  #     unit: scores
 
-  cl_stats:
-    ego_is_comfortable:
-      idx: 0
-      unit: boolean
-    drivable_area_compliance:
-      idx: 1
-      unit: boolean
-    corners_in_drivable_area:
-      idx: 2
-      unit: boolean
-    max_ego_lon_jerk:
-      idx: 3
-      unit: meters_per_second_cubed # normalize
-    min_ego_lon_jerk:
-      idx: 4
-      unit: meters_per_second_cubed # normalize
-    avg_ego_lon_jerk:
-      idx: 5
-      unit: meters_per_second_cubed # normalize
-    p90_ego_lon_jerk:
-      idx: 6
-      unit: meters_per_second_cubed # normalize
-    abs_ego_lon_jerk_within_bounds:
-      idx: 7
-      unit: boolean
-    driving_direction_compliance_score:
-      idx: 8
-      unit: value # normalize # nan!
-    min_progress_along_driving_direction_in_1_second_interval:
-      idx: 9
-      unit: meters # normalize
-    max_ego_lon_acceleration:
-      idx: 10
-      unit: meters_per_second_squared # normalize
-    min_ego_lon_acceleration:
-      idx: 11
-      unit: meters_per_second_squared # normalize
-    avg_ego_lon_acceleration:
-      idx: 12
-      unit: meters_per_second_squared # normalize
-    p90_ego_lon_acceleration:
-      idx: 13
-      unit: meters_per_second_squared # normalize
-    abs_ego_lon_acceleration_within_bounds:
-      idx: 14
-      unit: boolean
-    min_time_to_collision:
-      idx: 15
-      unit: seconds # normalize # nan!
-    time_to_collision_within_bound:
-      idx: 16
-      unit: boolean
-    speed_limit_compliance:
-      idx: 17
-      unit: boolean
-    number_of_violations_of_speed_limit_compliance:
-      idx: 18
-      unit: value # normalize # nan!
-    max_violation_of_speed_limit_compliance:
-      idx: 19
-      unit: value # normalize # nan!
-    min_violation_of_speed_limit_compliance:
-      idx: 20
-      unit: value # normalize # nan!
-    mean_violation_of_speed_limit_compliance:
-      idx: 21
-      unit: value # normalize # nan!
-    max_ego_jerk:
-      idx: 22
-      unit: meters_per_second_cubed # normalize
-    min_ego_jerk:
-      idx: 23
-      unit: meters_per_second_cubed # normalize
-    avg_ego_jerk:
-      idx: 24
-      unit: meters_per_second_cubed # normalize
-    p90_ego_jerk:
-      idx: 25
-      unit: meters_per_second_cubed # normalize
-    abs_ego_jerk_within_bounds:
-      idx: 26
-      unit: boolean
-    expert_total_progress_along_route:
-      idx: 27
-      unit: meters # normalize
-    ego_total_progress_along_route:
-      idx: 28
-      unit: meters # normalize
-    ego_expert_progress_along_route_ratio:
-      idx: 29
-      unit: ratio # normalize
-    no_ego_at_fault_collisions:
-      idx: 30
-      unit: boolean
-    number_of_all_at_fault_collisions:
-      idx: 31
-      unit: count # normalize
-    number_of_at_fault_collisions_with_VRUs:
-      idx: 32
-      unit: count # normalize
-    number_of_at_fault_collisions_with_vehicles:
-      idx: 33
-      unit: count # normalize
-    number_of_at_fault_collisions_with_objects:
-      idx: 34
-      unit: count # normalize
-    max_collision_energy_with_vehicles:
-      idx: 35
-      unit: meters_per_second # normalize # nan!
-    min_collision_energy_with_vehicles:
-      idx: 36
-      unit: meters_per_second # normalize # nan!
-    mean_collision_energy_with_vehicles:
-      idx: 37
-      unit: meters_per_second # normalize # nan!
-    max_collision_energy_with_objects:
-      idx: 38
-      unit: value # normalize # nan!
-    min_collision_energy_with_objects:
-      idx: 39
-      unit: value # normalize # nan!
-    mean_collision_energy_with_objects:
-      idx: 40
-      unit: value # normalize # nan!
-    max_ego_lat_acceleration:
-      idx: 41
-      unit: meters_per_second_squared # normalize
-    min_ego_lat_acceleration:
-      idx: 42
-      unit: meters_per_second_squared # normalize
-    avg_ego_lat_acceleration:
-      idx: 43
-      unit: meters_per_second_squared # normalize
-    p90_ego_lat_acceleration:
-      idx: 44
-      unit: meters_per_second_squared # normalize
-    abs_ego_lat_acceleration_within_bounds:
-      idx: 45
-      unit: boolean
-    ego_is_making_progress:
-      idx: 46
-      unit: boolean
-    max_ego_yaw_acceleration:
-      idx: 47
-      unit: radians_per_second_squared # normalize
-    min_ego_yaw_acceleration:
-      idx: 48
-      unit: radians_per_second_squared # normalize
-    avg_ego_yaw_acceleration:
-      idx: 49
-      unit: radians_per_second_squared # normalize
-    p90_ego_yaw_acceleration:
-      idx: 50
-      unit: radians_per_second_squared # normalize
-    abs_ego_yaw_acceleration_within_bounds:
-      idx: 51
-      unit: boolean
-    number_of_ego_lane_change:
-      idx: 52
-      unit: count # normalize
-    max_ego_lane_change_duration:
-      idx: 53
-      unit: seconds # normalize
-    avg_ego_lane_change_duration:
-      idx: 54
-      unit: seconds # normalize
-    ratio_of_failed_ego_lane_change:
-      idx: 55
-      unit: ratio # nan!
-    ego_lane_change_fail_rate_below_threshold:
-      idx: 56
-      unit: boolean
-    max_ego_yaw_rate:
-      idx: 57
-      unit: radians_per_second # normalize
-    min_ego_yaw_rate:
-      idx: 58
-      unit: radians_per_second # normalize
-    avg_ego_yaw_rate:
-      idx: 59
-      unit: radians_per_second # normalize
-    p90_ego_yaw_rate:
-      idx: 60
-      unit: radians_per_second # normalize
-    abs_ego_yaw_rate_within_bounds:
-      idx: 61
-      unit: boolean
-    all:
-      idx: 62
-      unit: scores
+  # cl_stats:
+  #   ego_is_comfortable:
+  #     idx: 0
+  #     unit: boolean
+  #   drivable_area_compliance:
+  #     idx: 1
+  #     unit: boolean
+  #   corners_in_drivable_area:
+  #     idx: 2
+  #     unit: boolean
+  #   max_ego_lon_jerk:
+  #     idx: 3
+  #     unit: meters_per_second_cubed # normalize
+  #   min_ego_lon_jerk:
+  #     idx: 4
+  #     unit: meters_per_second_cubed # normalize
+  #   avg_ego_lon_jerk:
+  #     idx: 5
+  #     unit: meters_per_second_cubed # normalize
+  #   p90_ego_lon_jerk:
+  #     idx: 6
+  #     unit: meters_per_second_cubed # normalize
+  #   abs_ego_lon_jerk_within_bounds:
+  #     idx: 7
+  #     unit: boolean
+  #   driving_direction_compliance_score:
+  #     idx: 8
+  #     unit: value # normalize # nan!
+  #   min_progress_along_driving_direction_in_1_second_interval:
+  #     idx: 9
+  #     unit: meters # normalize
+  #   max_ego_lon_acceleration:
+  #     idx: 10
+  #     unit: meters_per_second_squared # normalize
+  #   min_ego_lon_acceleration:
+  #     idx: 11
+  #     unit: meters_per_second_squared # normalize
+  #   avg_ego_lon_acceleration:
+  #     idx: 12
+  #     unit: meters_per_second_squared # normalize
+  #   p90_ego_lon_acceleration:
+  #     idx: 13
+  #     unit: meters_per_second_squared # normalize
+  #   abs_ego_lon_acceleration_within_bounds:
+  #     idx: 14
+  #     unit: boolean
+  #   min_time_to_collision:
+  #     idx: 15
+  #     unit: seconds # normalize # nan!
+  #   time_to_collision_within_bound:
+  #     idx: 16
+  #     unit: boolean
+  #   speed_limit_compliance:
+  #     idx: 17
+  #     unit: boolean
+  #   number_of_violations_of_speed_limit_compliance:
+  #     idx: 18
+  #     unit: value # normalize # nan!
+  #   max_violation_of_speed_limit_compliance:
+  #     idx: 19
+  #     unit: value # normalize # nan!
+  #   min_violation_of_speed_limit_compliance:
+  #     idx: 20
+  #     unit: value # normalize # nan!
+  #   mean_violation_of_speed_limit_compliance:
+  #     idx: 21
+  #     unit: value # normalize # nan!
+  #   max_ego_jerk:
+  #     idx: 22
+  #     unit: meters_per_second_cubed # normalize
+  #   min_ego_jerk:
+  #     idx: 23
+  #     unit: meters_per_second_cubed # normalize
+  #   avg_ego_jerk:
+  #     idx: 24
+  #     unit: meters_per_second_cubed # normalize
+  #   p90_ego_jerk:
+  #     idx: 25
+  #     unit: meters_per_second_cubed # normalize
+  #   abs_ego_jerk_within_bounds:
+  #     idx: 26
+  #     unit: boolean
+  #   expert_total_progress_along_route:
+  #     idx: 27
+  #     unit: meters # normalize
+  #   ego_total_progress_along_route:
+  #     idx: 28
+  #     unit: meters # normalize
+  #   ego_expert_progress_along_route_ratio:
+  #     idx: 29
+  #     unit: ratio # normalize
+  #   no_ego_at_fault_collisions:
+  #     idx: 30
+  #     unit: boolean
+  #   number_of_all_at_fault_collisions:
+  #     idx: 31
+  #     unit: count # normalize
+  #   number_of_at_fault_collisions_with_VRUs:
+  #     idx: 32
+  #     unit: count # normalize
+  #   number_of_at_fault_collisions_with_vehicles:
+  #     idx: 33
+  #     unit: count # normalize
+  #   number_of_at_fault_collisions_with_objects:
+  #     idx: 34
+  #     unit: count # normalize
+  #   max_collision_energy_with_objects:
+  #     idx: 35
+  #     unit: meters_per_second # normalize # nan!
+  #   min_collision_energy_with_objects:
+  #     idx: 36
+  #     unit: meters_per_second # normalize # nan!
+  #   mean_collision_energy_with_objects:
+  #     idx: 37
+  #     unit: meters_per_second # normalize # nan!
+  #   max_collision_energy_with_VRUs:
+  #     idx: 38
+  #     unit: value # normalize # nan!
+  #   min_collision_energy_with_VRUs:
+  #     idx: 39
+  #     unit: value # normalize # nan!
+  #   mean_collision_energy_with_VRUs:
+  #     idx: 40
+  #     unit: value # normalize # nan!
+  #   max_collision_energy_with_vehicles:
+  #     idx: 38
+  #     unit: value # normalize # nan!
+  #   min_collision_energy_with_objects:
+  #     idx: 39
+  #     unit: value # normalize # nan!
+  #   mean_collision_energy_with_objects:
+  #     idx: 40
+  #     unit: value # normalize # nan!
+  #   max_ego_lat_acceleration:
+  #     idx: 41
+  #     unit: meters_per_second_squared # normalize
+  #   min_ego_lat_acceleration:
+  #     idx: 42
+  #     unit: meters_per_second_squared # normalize
+  #   avg_ego_lat_acceleration:
+  #     idx: 43
+  #     unit: meters_per_second_squared # normalize
+  #   p90_ego_lat_acceleration:
+  #     idx: 44
+  #     unit: meters_per_second_squared # normalize
+  #   abs_ego_lat_acceleration_within_bounds:
+  #     idx: 45
+  #     unit: boolean
+  #   ego_is_making_progress:
+  #     idx: 46
+  #     unit: boolean
+  #   max_ego_yaw_acceleration:
+  #     idx: 47
+  #     unit: radians_per_second_squared # normalize
+  #   min_ego_yaw_acceleration:
+  #     idx: 48
+  #     unit: radians_per_second_squared # normalize
+  #   avg_ego_yaw_acceleration:
+  #     idx: 49
+  #     unit: radians_per_second_squared # normalize
+  #   p90_ego_yaw_acceleration:
+  #     idx: 50
+  #     unit: radians_per_second_squared # normalize
+  #   abs_ego_yaw_acceleration_within_bounds:
+  #     idx: 51
+  #     unit: boolean
+  #   number_of_ego_lane_change:
+  #     idx: 52
+  #     unit: count # normalize
+  #   max_ego_lane_change_duration:
+  #     idx: 53
+  #     unit: seconds # normalize
+  #   avg_ego_lane_change_duration:
+  #     idx: 54
+  #     unit: seconds # normalize
+  #   ratio_of_failed_ego_lane_change:
+  #     idx: 55
+  #     unit: ratio # nan!
+  #   ego_lane_change_fail_rate_below_threshold:
+  #     idx: 56
+  #     unit: boolean
+  #   max_ego_yaw_rate:
+  #     idx: 57
+  #     unit: radians_per_second # normalize
+  #   min_ego_yaw_rate:
+  #     idx: 58
+  #     unit: radians_per_second # normalize
+  #   avg_ego_yaw_rate:
+  #     idx: 59
+  #     unit: radians_per_second # normalize
+  #   p90_ego_yaw_rate:
+  #     idx: 60
+  #     unit: radians_per_second # normalize
+  #   abs_ego_yaw_rate_within_bounds:
+  #     idx: 61
+  #     unit: boolean
+  #   all:
+  #     idx: 62
+  #     unit: scores

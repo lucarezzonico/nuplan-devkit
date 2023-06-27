@@ -8,7 +8,7 @@ from nuplan.planning.script.run_simulation import main as main_simulation
 from nuplan.planning.script.run_nuboard import main as main_nuboard
 import yaml
 import glob
-from typing import List, Optional, cast
+from typing import List, Optional, cast, Tuple
 import shutil
 from PIL import Image
 import logging
@@ -70,12 +70,13 @@ class Tasks():
             simulation_folder = cfg.output_dir
             
         elif cfg.planner == 'ml_planner':
-            model_path = self.get_model_path(cfg)
+            model_path, train_experiment_dir = self.get_model_path(cfg)
             logger.info(f' model_path={model_path}')
 
             override_list.extend([f'{k}={v}' for k, v in cfg.ml_simulation_params.items()])
             override_list.append('planner.ml_planner.model_config=${model}') # hydra notation to select model config
             override_list.append(f'planner.ml_planner.checkpoint_path={model_path}') # path to trained model
+            override_list.append(f'group={train_experiment_dir}/simulation') # save simultion to the trained model's folder to know which model was used for simulation
             
             # Compose the configuration
             cfg = hydra.compose(config_name=cfg.config_name_simulation, overrides=override_list)
@@ -104,10 +105,10 @@ class Tasks():
         main_nuboard(cfg)
         
         
-    def get_model_path(self, cfg: DictConfig) -> str:
+    def get_model_path(self, cfg: DictConfig) -> Tuple[str, str]:
         search_folder_name = 'best_model'  # or 'checkpoints'
         
-        # if we know where the model to simulate is
+        # if we give the specific path to the model to simulate
         if (Path(cfg.log_dir) / search_folder_name).exists():
             train_experiment_dir = Path(cfg.log_dir)
         else: # otherwise get the last trained model
@@ -122,7 +123,7 @@ class Tasks():
         checkpoint = sorted((train_experiment_dir / search_folder_name).iterdir())[-1] # get last saved model
         model_path = str(checkpoint).replace("=", "\=")
         
-        return model_path
+        return model_path, train_experiment_dir
         
 
     def scenario_visualzation(self, engine: TrainingEngine) -> None:
@@ -206,12 +207,28 @@ class Tasks():
 
 if __name__ == '__main__':
     task = Tasks()
-    cfgs = task.load_cfgs("default_config_autobotego")
+    # cfgs = task.load_cfgs("default_config_autobotego")
     # cfgs = task.load_cfgs("default_config_autobotjoint")
     # cfgs = task.load_cfgs("default_config_urban_driver_open_loop")
     # cfgs = task.load_cfgs("default_config_urban_driver_open_loop_multimodal")
     # cfgs = task.load_cfgs("default_config_urban_driver_closed_loop")
     # cfgs = task.load_cfgs("default_config_urban_driver_closed_loop_with_v")
     # cfgs = task.load_cfgs("default_config_safepathnet")
+    # cfgs = task.load_cfgs([
+    #     "default_config_autobotego_1",
+    #     "default_config_urban_driver_closed_loop_1",
+    #     "default_config_urban_driver_closed_loop_with_v_1",
+    #     "default_config_autobotego_2",
+    #     "default_config_urban_driver_closed_loop_2",
+    #     "default_config_urban_driver_closed_loop_with_v_2",
+    #     "default_config_autobotego_3",
+    #     "default_config_urban_driver_closed_loop_3",
+    #     "default_config_urban_driver_closed_loop_with_v_3",
+    # ])
+    cfgs = task.load_cfgs([
+        "default_config_urban_driver_open_loop_1",
+        "default_config_urban_driver_open_loop_2",
+        "default_config_urban_driver_open_loop_3",
+    ])
     
     task.main(cfgs)

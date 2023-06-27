@@ -35,32 +35,6 @@ scenario_types: [
   stationary_in_traffic
 ]
 
-# for open-loop simulation metrics summary
-selected_ol_stats: [planner_expert_ADE_horizon_3,
-                    planner_expert_FDE_horizon_3,
-                    planner_expert_FHE_horizon_3,
-                    planner_expert_AHE_horizon_3,
-                    planner_expert_ADE_horizon_8,
-                    planner_expert_FDE_horizon_8,
-                    planner_expert_FHE_horizon_8,
-                    planner_expert_AHE_horizon_8]
-# for closed-loop simulation metrics summary
-selected_cl_stats: [ego_is_comfortable,
-                    drivable_area_compliance,
-                    corners_in_drivable_area,
-                    abs_ego_lon_jerk_within_bounds,
-                    abs_ego_lon_acceleration_within_bounds,
-                    time_to_collision_within_bound,
-                    speed_limit_compliance,
-                    abs_ego_jerk_within_bounds,
-                    ego_expert_progress_along_route_ratio, # unit: ratio # normalize
-                    no_ego_at_fault_collisions,
-                    abs_ego_lat_acceleration_within_bounds,
-                    ego_is_making_progress,
-                    abs_ego_yaw_acceleration_within_bounds,
-                    ego_lane_change_fail_rate_below_threshold,
-                    abs_ego_yaw_rate_within_bounds,]
-
 training_options:
   optimizer: adam_autobots
   optimizer.lr: 7e-4
@@ -79,8 +53,6 @@ simulation_options:
   model.model_params.predict_yaw: ${predict_yaw}
   model.model_params.draw_visualizations: ${draw_visualizations}
   model.model_params.log_dir: ${log_dir}
-  main_callback.metric_summary_callback.selected_ol_stats: ${selected_ol_stats}
-  main_callback.metric_summary_callback.selected_cl_stats: ${selected_cl_stats}
   # scenario_filter.log_names: [2021.08.24.17.34.27_veh-45_01118_01346]
   # selected_simulation_metrics: [ego_acceleration_statistics, ego_jerk_statistics]
 

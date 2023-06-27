@@ -45,7 +45,7 @@ def nll_pytorch_dist(pred, data, rtn_loss=True):
         return (-biv_gauss_dist.log_prob(data)).sum(dim=(1, 2))  # Laplace
 
 
-def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.0, use_FDEADE_aux_loss=True):
+def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.0, use_FDEADE_aux_loss=True, predict_yaw=False):
     """NLL loss multimodes for training. MFP Loss function
     Args:
       pred: [K, T, B, 5]
@@ -53,6 +53,8 @@ def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.
       modes_pred: [B, K], prior prob over modes
       noise is optional
     """
+    data_with_yaw = data.clone()
+    
     modes = len(pred) # K in comments, or C in paper
     nSteps, batch_sz, dim = pred[0].shape # T, B, 5
 
@@ -60,7 +62,7 @@ def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.
     log_lik = np.zeros((batch_sz, modes)) # [B, c]
     with torch.no_grad():
         for kk in range(modes):
-            nll = nll_pytorch_dist(pred[kk].transpose(0, 1), data, rtn_loss=False) # pred[kk].transpose(0, 1): [B, T, 5], data: [B, T, 2]
+            nll = nll_pytorch_dist(pred[kk].transpose(0, 1), data[:, :, :2], rtn_loss=False) # pred[kk].transpose(0, 1): [B, T, 5], data: [B, T, 2]
             log_lik[:, kk] = -nll.cpu().numpy() # update one mode of all batches' log likelihood
 
     priors = modes_pred.detach().cpu().numpy() # priors won't be performed gradient on
@@ -73,7 +75,7 @@ def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.
     # Compute loss.
     loss = 0.0
     for kk in range(modes):
-        nll_k = nll_pytorch_dist(pred[kk].transpose(0, 1), data, rtn_loss=True) * post_pr[:, kk]
+        nll_k = nll_pytorch_dist(pred[kk].transpose(0, 1), data[:, :, :2], rtn_loss=True) * post_pr[:, kk]
         loss += nll_k.mean()
 
     # Adding entropy loss term to ensure that individual predictions do not try to cover multiple modes.
@@ -90,17 +92,25 @@ def nll_loss_multimodes(pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.
 
     # compute ADE/FDE loss - L2 norms with between best predictions and GT.
     if use_FDEADE_aux_loss:
-        adefde_loss = l2_loss_fde(pred, data)
+        adefde_loss = l2_loss_fde(pred, data_with_yaw, predict_yaw)
     else:
-        adefde_loss = torch.tensor(0.0).to(data.device)
+        adefde_loss = torch.tensor(0.0).to(data_with_yaw.device)
 
     return loss, kl_loss, post_entropy, adefde_loss
 
 
-def l2_loss_fde(pred, data):
+def l2_loss_fde(pred, data, predict_yaw):
     fde_loss = torch.norm((pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)), 2, dim=-1)
     ade_loss = torch.norm((pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)), 2, dim=-1).mean(dim=2).transpose(0, 1)
-    loss, min_inds = (fde_loss + ade_loss).min(dim=1)
+
+    # yaw_loss = torch.tensor(0.0).to(pred.device)
+    if pred.shape[3]==6:
+        yaw_loss = torch.norm(pred[:, :, :, 5:].transpose(1, 2) - data[:, :, 2:3].unsqueeze(0), dim=-1).mean(2)  # across time
+        yaw_loss = yaw_loss.transpose(0, 1)
+    else:
+        yaw_loss = torch.tensor(0.0).to(pred.device)
+    
+    loss, min_inds = (fde_loss + ade_loss + yaw_loss).min(dim=1)
     return 100.0 * loss.mean()
 
 

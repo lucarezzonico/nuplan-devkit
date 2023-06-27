@@ -1,48 +1,49 @@
-tasks: [train, simulate, open_nuboard] # [train, simulate, open_nuboard]
-model_name: vector # [vector, autobotego]
+tasks: [simulate] # [train, simulate, open_nuboard]
+model_name: urban_driver_closed_loop # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 8000
-nb_epochs: 2
-batch_size: 4
+nb_scenarios: 200000
+nb_epochs: 20
+batch_size: 8
 lightning_accelerator: ddp_spawn
 nb_workers: 8
 
 # adapt simulation params
 planner: ml_planner  # [simple_planner, ml_planner]
-challenge: open_loop_boxes  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
+challenge: closed_loop_nonreactive_agents  # [open_loop_boxes, closed_loop_nonreactive_agents, closed_loop_reactive_agents]
 scenarios: all_scenarios # [all_scenarios, nuplan_challenge_scenarios, one_continuous_log, one_of_each_scenario_type] # initially select all scenarios in the database
-nb_scenarios_per_type: 2 # use 10 scenarios per scenario type
+nb_scenarios_per_type: 20 # use 10 scenarios per scenario type
 scenario_types: [
-  # starting_straight_traffic_light_intersection_traversal,
+  starting_straight_traffic_light_intersection_traversal,
   high_lateral_acceleration,
-  #  changing_lane,
-  #  high_magnitude_speed,
-  #  low_magnitude_speed,
-  #  starting_left_turn,
-  #  starting_right_turn,
-  #  stopping_with_lead,
-  #  following_lane_with_lead,
-  #  near_multiple_vehicles,
-  #  traversing_pickup_dropoff,
-  #  behind_long_vehicle,
-  #  waiting_for_pedestrian_to_cross,
-  #  stationary_in_traffic
+  changing_lane,
+  high_magnitude_speed,
+  low_magnitude_speed,
+  starting_left_turn,
+  starting_right_turn,
+  stopping_with_lead,
+  following_lane_with_lead,
+  near_multiple_vehicles,
+  traversing_pickup_dropoff,
+  behind_long_vehicle,
+  waiting_for_pedestrian_to_cross,
+  stationary_in_traffic
 ]
 
 training_options:
-  # optimizer: adam
-  # optimizer.lr: 0.001
+  optimizer: adamw
+  optimizer.lr: 5e-6
   # +optimizer.eps: 1e-4
-  # lr_scheduler: multistep_lr # [multistep_lr]
-  # lr_scheduler.milestones: [5, 10, 15, 20]
-  # lr_scheduler.gamma: 0.1
-  scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
+  lr_scheduler: multistep_lr # [multistep_lr]
+  lr_scheduler.milestones: [10, 20, 30] # [2, 4, 6, 10, 14, 18, 24, 30, 36, 44, 52, 60, 70, 80, 90, 102, 114]
+  lr_scheduler.gamma: 0.2
+  # scenario_filter.scenario_types: ${scenario_types} # train on selection of scenarios
 
 simulation_options:
   scenario_filter.scenario_types: ${scenario_types}
+  model.model_params.log_dir: ${log_dir}
   # scenario_filter.log_names: [2021.08.24.17.34.27_veh-45_01118_01346]
   # selected_simulation_metrics: [ego_acceleration_statistics, ego_jerk_statistics]
 
@@ -59,7 +60,7 @@ save_dir_training: ${oc.env:NUPLAN_EXP_ROOT}/training
 save_dir_simulation: ${oc.env:NUPLAN_EXP_ROOT}/simulation
 experiment: ${model_name}_experiment
 model: ${model_name}_model
-log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model} # where to get trained model from
+log_dir: ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model}  # where to get trained model from  # ${oc.env:NUPLAN_EXP_ROOT}/training/${experiment}/${model}/2023.05.08.09.03.25_80000sc_13ep
 
 
 # for training override

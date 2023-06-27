@@ -48,7 +48,7 @@ feature_params:
   future_time_steps: 16   # 20
   feature_dimension: 8    # 8, 3, 6
   # Agent features
-  agent_features: [VEHICLE, BICYCLE, PEDESTRIAN] # [VEHICLE, BICYCLE, PEDESTRIAN]
+  agent_features: [VEHICLE] # [VEHICLE, BICYCLE, PEDESTRIAN]
   ego_dimension: 3        # 8, 3
   agent_dimension: 8     # 8
   max_agents: 30

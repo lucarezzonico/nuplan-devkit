@@ -89,7 +89,8 @@ simulation_params:
   scenario_builder: ${dataset}
   scenario_filter: ${scenarios}
   scenario_filter.num_scenarios_per_type: ${nb_scenarios_per_type}
-
+  main_callback.metric_summary_callback.model_name: ${model_name}_model
+  
 ml_simulation_params:
   model: ${model}
 

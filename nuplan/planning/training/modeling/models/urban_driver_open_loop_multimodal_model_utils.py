@@ -472,9 +472,10 @@ class MultiheadAttentionGlobalHead(nn.Module):
             num_modes,
             num_mlp_layers,
         )
-        self.query = nn.Parameter(torch.empty(num_modes + 1, 1, global_embedding_size))
-        with torch.no_grad():
-            self.query.normal_(0.0, 2000.0)
+        self.query = nn.Parameter(torch.Tensor(num_modes + 1, 1, global_embedding_size), requires_grad=True)
+        nn.init.xavier_uniform_(self.query)
+        # with torch.no_grad():
+        #     self.query.normal_(0.0, 0.02)
             
         self.log_softmax = nn.LogSoftmax(dim=1)
 
@@ -493,9 +494,11 @@ class MultiheadAttentionGlobalHead(nn.Module):
         #   - key is inputs plus type embedding
         #   - value is inputs
         #self.query = self.query.float().to(inputs.device)
-        query = self.query.repeat(1, inputs.shape[1], 1) # [6+1,8,16]
+        query = self.query.repeat(1, inputs.shape[1], 1) # [6+1,8,256]
+        # q = inputs[[0]].repeat(query.shape[0], 1, 1) # [1,8,256]
+        # q[query.shape[0]-1] = query[query.shape[0]-1]
         out, attns = self.encoder(query, inputs + type_embedding, inputs, mask) # out = [6+1, 8, 256], attns = [8, 6+1, 191]
         outputs = self.output_embed(out[:self.num_modes].transpose(0, 1)).view(-1, self.num_modes, self.num_timesteps, self.num_outputs) # [8,6,16,3]
         classification = self.log_softmax(self.classification(out[-1:].transpose(0, 1))) # [8, 1, 6]  without ":" ([256, 6] instead of [8, 6])
-        classification = self.log_softmax(classification.squeeze(dim=1)) # [8, 6]
+        classification = classification.squeeze(dim=1) # [8, 6]
         return outputs, attns, classification

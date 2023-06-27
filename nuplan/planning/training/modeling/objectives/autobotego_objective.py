@@ -18,7 +18,7 @@ class AutobotsObjective(AbstractObjective):
     Autobots ego objective
     """
 
-    def __init__(self, scenario_type_loss_weighting: Dict[str, float], entropy_weight, kl_weight, use_FDEADE_aux_loss):
+    def __init__(self, scenario_type_loss_weighting: Dict[str, float], entropy_weight, kl_weight, use_FDEADE_aux_loss, predict_yaw):
         """
         Initializes the class
         :param name: name of the objective
@@ -28,6 +28,7 @@ class AutobotsObjective(AbstractObjective):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self.predict_yaw = predict_yaw
         self._scenario_type_loss_weighting = scenario_type_loss_weighting
 
     def name(self) -> str:
@@ -59,10 +60,13 @@ class AutobotsObjective(AbstractObjective):
         loss_weights = extract_scenario_type_weight(scenarios, self._scenario_type_loss_weighting, device=pred_obs.device) # [B]
 
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
-                                                                                   entropy_weight=self.entropy_weight,
-                                                                                   kl_weight=self.kl_weight,
-                                                                                   use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs,
+                                                                           targets_xy,
+                                                                           mode_probs,
+                                                                           entropy_weight=self.entropy_weight,
+                                                                           kl_weight=self.kl_weight,
+                                                                           use_FDEADE_aux_loss=self.use_FDEADE_aux_loss,
+                                                                           predict_yaw=self.predict_yaw,)
         
         total_loss=nll_loss + adefde_loss + kl_loss
         # how to implement the gradient clip?

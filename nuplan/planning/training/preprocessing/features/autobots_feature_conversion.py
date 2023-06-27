@@ -205,11 +205,13 @@ class NuplanToAutobotsConverter:
 
         most_likely_idx=torch.argmax(mode_probs, 1)
         # for each batch, pick the trajectory with largest probability
-        trajs=torch.stack([pred_obs[most_likely_idx[i],:,i,:] for i in range(pred_obs.shape[2])])   # [8, 16, 6]
-
-        trajs_3=trajs[:,:,:3]
-
-        trajs_3[:,:,-1] = 0
+        trajs=torch.stack([pred_obs[most_likely_idx[i],:,i,:] for i in range(pred_obs.shape[2])])   # [8, 16, 6], 6 = [x_mean, y_mean, x_sigma, y_sigma, rho, yaws]
+        
+        if pred_obs.shape[3] == 6: # angle is predicted
+            trajs_3=trajs[:,:,:,[0,1,5]]
+        else:
+            trajs_3=trajs[:,:,:,:3]
+            trajs_3[:,:,:,-1] = 0
 
         # ang_vec=trajs_3[:,1:,:2] - trajs_3[:,:-1,:2] 
         # ang = torch.atan2(ang_vec[:,:,0], ang_vec[:,:,1])
@@ -220,19 +222,41 @@ class NuplanToAutobotsConverter:
 
 
     @torch.jit.unused
-    def select_all_trajectories(self, pred_obs: Tensor, mode_probs: Tensor) -> Trajectories:
+    def select_all_trajectories(self, pred_obs: Tensor, mode_probs: Tensor) -> Tuple[Trajectories, Trajectory]:
         """select the trajectory with the largest probability for each batch of data
         Args:
             pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
             mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
         """
-        _, sorted_indices = torch.sort(mode_probs, dim=1, descending=True)
-        # for each batch, pick the trajectory with largest probability
-        trajs=torch.stack([pred_obs[sorted_indices[i],:,i,:] for i in range(pred_obs.shape[2])], dim=1)    # [8, 6, 16, 6]
-        trajs_3=trajs[:,:,:,:3]
-        trajs_3[:,:,:,-1] = 0
+        pred_obs_traj = pred_obs.permute(2, 0, 1, 3) # [B, c, T, 6]
+
+
+        # Sort the trajectory probabilities in descending order
+        mode_probs_sorted, mode_probs_index = mode_probs.sort(dim=-1, descending=True)
+
+        # [batch_size, num_agents, 1, 1, 1]
+        mode_probs_index_expanded = mode_probs_index[:, :, None, None]
+        # [batch_size, num_agents, num_future_frames, 3]
+        # NOTE: torch.gather can be non-deterministic -- from pytorch 1.9.0 torch.take_along_dim can be used instead
+        trajs = torch.gather(
+            pred_obs_traj, dim=1,
+            index=mode_probs_index_expanded.expand(([-1, -1] + list(pred_obs_traj.shape[-2:])))
+            ).squeeze(1)
         
-        ego_trajs = list(trajs_3.chunk(trajs_3.size(1), dim=1))
-        predicted_trajs = [Trajectory(data=pred[:, 0]) for pred in ego_trajs] # ego trajs # [8]Trajectory(6, 16, 3)
+        # _, sorted_indices = torch.sort(mode_probs, dim=1, descending=True)
+        # # for each batch, pick the trajectory with largest probability
+        # trajs=torch.stack([pred_obs[sorted_indices[i],:,i,:] for i in range(pred_obs.shape[2])], dim=1)    # [8, 6, 16, 6], 6 = [x_mean, y_mean, x_sigma, y_sigma, rho, yaws]
         
-        return Trajectories(trajectories=predicted_trajs) # Trajectories([8]Trajectory(6, 16, 3))
+        if pred_obs.shape[3] == 6: # angle is predicted
+            trajs_3=trajs[:,:,:,[0,1,5]]
+        else:
+            trajs_3=trajs[:,:,:,:3] # overwright the x_sigma with yaw = 0 since not predicted
+            trajs_3[:,:,:,-1] = 0
+        
+        ego_trajs = list(trajs_3.chunk(trajs_3.size(0), dim=0))
+        predicted_trajs = [Trajectory(data=pred[0, :]) for pred in ego_trajs] # ego trajs # [8]Trajectory(6, 16, 3)
+        
+        all_trajs = Trajectories(trajectories=predicted_trajs)
+        best_traj = Trajectory(data=trajs_3[:,0])           # select best trajectory
+        
+        return all_trajs, best_traj # Trajectories([8]Trajectory(6, 16, 3)) & Trajectory(8, 16, 3))

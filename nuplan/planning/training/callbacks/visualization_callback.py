@@ -261,9 +261,9 @@ class VisualizationCallback(pl.Callback):
         if model_name in self.multiagents_multimodal_models:
             target_traj = targets['trajectory'].unpack()
             # predicted_trajs = predictions["trajectories"].unpack()
-            predicted_tensors = list(predictions["past"].data[:,:,:,:5,:].chunk(predictions["past"].data[:,:,:,:5,:].size(0), dim=0)) # to plot all agents targets/pasts
+            # predicted_tensors = list(predictions["past"].data[:,:,:,:5,:].chunk(predictions["past"].data[:,:,:,:5,:].size(0), dim=0)) # to plot all agents targets/pasts
             # predicted_tensors = list(predictions["future"].data.chunk(predictions["future"].data.size(0), dim=0)) # [8][50, 6, 16, 3]
-            # predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0)) # [8][50, 6, 16, 3]
+            predicted_tensors = list(predictions["all_pred_agents"].data.chunk(predictions["all_pred_agents"].data.size(0), dim=0)) # [8][50, 6, 16, 3]
             # # list of 8 Trajectories objects containing 50 Trajectory objects of size (6,16,3): [[8]Trajectories([50]Trajectory(6,16,3))]
             predicted_trajs = [self.compute_trajectories(batch_tensors.squeeze(dim=0), model_name, all_agents=all_agents, all_modes=all_modes)
                                for batch_tensors in predicted_tensors]

@@ -1,7 +1,7 @@
 import logging
 import math
 import time
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union, Tuple, Optional
@@ -148,49 +148,6 @@ def example_data():
     ]
     return data
 
-@dataclass
-class IdxUnit:
-    idx: int
-    unit: str
-    
-@dataclass
-class OLStats:
-    """
-    Parameters for RadarPlot.
-    """
-    planner_miss_rate_horizon_3: IdxUnit
-    planner_miss_rate_horizon_5: IdxUnit
-    planner_miss_rate_horizon_8: IdxUnit
-    planner_miss_rate_within_bound: IdxUnit
-    planner_expert_ADE_horizon_3: IdxUnit
-    planner_expert_ADE_horizon_5: IdxUnit
-    planner_expert_ADE_horizon_8: IdxUnit
-    planner_expert_average_l2_error_within_bound: IdxUnit
-    avg_planner_expert_ADE_over_all_horizons: IdxUnit
-    planner_expert_FDE_horizon_3: IdxUnit
-    planner_expert_FDE_horizon_5: IdxUnit
-    planner_expert_FDE_horizon_8: IdxUnit
-    planner_expert_final_l2_error_within_bound: IdxUnit
-    avg_planner_expert_FDE_over_all_horizons: IdxUnit
-    planner_expert_FHE_horizon_3: IdxUnit
-    planner_expert_FHE_horizon_5: IdxUnit
-    planner_expert_FHE_horizon_8: IdxUnit
-    planner_expert_final_heading_error_within_bound: IdxUnit
-    avg_planner_expert_FHE_over_all_horizons: IdxUnit
-    planner_expert_AHE_horizon_3: IdxUnit
-    planner_expert_AHE_horizon_5: IdxUnit
-    planner_expert_AHE_horizon_8: IdxUnit
-    planner_expert_average_heading_error_within_bound: IdxUnit
-    avg_planner_expert_AHE_over_all_horizons: IdxUnit
-    all: IdxUnit    
-   
-@dataclass
-class CLStats:
-    """
-    Parameters for RadarPlot.
-    """
-    ego_is_comfortable: IdxUnit
-    all: IdxUnit
 
 class MetricSummaryCallback(AbstractMainCallback):
     """Callback to render histograms for metrics and metric aggregator."""
@@ -203,8 +160,6 @@ class MetricSummaryCallback(AbstractMainCallback):
         pdf_file_name: str,
         selected_ol_stats: List[str],
         selected_cl_stats: List[str],
-        ol_stats: OLStats,
-        cl_stats: CLStats,
         num_bins: int = 20,
         model_name: str = "Model",
         max_average_l2_error_threshold: float = 8.0,       # [m]
@@ -234,8 +189,6 @@ class MetricSummaryCallback(AbstractMainCallback):
         self.max_final_heading_error_threshold = max_final_heading_error_threshold      # [rad]
         self.selected_ol_stats = selected_ol_stats
         self.selected_cl_stats = selected_cl_stats
-        self.ol_stats = ol_stats
-        self.cl_stats = cl_stats
 
     @staticmethod
     def _read_metric_parquet_files(
@@ -530,8 +483,6 @@ class MetricSummaryCallback(AbstractMainCallback):
         :param n_cols: Number of columns in subplot.
         """
         matplotlib_plots = []
-        radar_plot_metrics = []
-        radar_plot_values_mean_over_all_scenarios = []
         
         simulation_type = str(list(histogram_data_dict.keys())[-1])
         if "open_loop" in simulation_type:
@@ -542,17 +493,18 @@ class MetricSummaryCallback(AbstractMainCallback):
             simulation_type = "Closed-Loop Reacive Agents"
         else:
             raise ValueError(f"Simulation type {simulation_type} is not supported!")
-            
-        num_scenarios = len(list(histogram_data_dict.items())[-1][1][0].statistics["all"].scenarios)
-        num_statistics = len(self.ol_stats.items()) if simulation_type == "Open-Loop" else len(self.cl_stats.items())
         
-        radar_plot_scenario_statistics = np.zeros((num_scenarios, num_statistics))
+        # dictionary to store the result
+        stat_dict = OrderedDict()
+        
+        radar_plot_scenario_statistics = []
         statistic_global_idx = 0
         
         scenario_names = list(histogram_data_dict.items())[-1][1][0].statistics["all"].scenarios
         scenario_types_keys = list(list(histogram_data_dict.items())[-1][1][0].statistics.keys())
         scenarios_by_type = list(list(histogram_data_dict.items())[-1][1][0].statistics.items())[1:]
         scenario_types_of_each_scenario = [item[0] for s in scenario_names for item in scenarios_by_type if s in item[1].scenarios]
+
 
         for histogram_title, histogram_data_list in tqdm(histogram_data_dict.items(), desc='Rendering radar plots'):
             for histogram_data in histogram_data_list:                
@@ -588,40 +540,44 @@ class MetricSummaryCallback(AbstractMainCallback):
                     # elif  unit in ["scores"]: # every scenario's score separately
                     #     values_per_scenario = values_per_scenario
                         
-                    values_mean_over_all_scenarios = np.mean(values_per_scenario) # average on all scenarios values [num_scenarios] -> [1]
-                    
                     stat_name = statistic_name
-                    stat_name = stat_name.replace("planner_expert_", "")
-                    stat_name = stat_name.replace("planner_", "")
-                    stat_name = stat_name.replace("average_l2_error", "ADE")
-                    stat_name = stat_name.replace("final_l2_error", "FDE")
-                    stat_name = stat_name.replace("average_heading_error", "AHE")
-                    stat_name = stat_name.replace("final_heading_error", "FHE")
-                    radar_plot_metrics.append(stat_name)
+                    # stat_name = stat_name.replace("planner_expert_", "")
+                    # stat_name = stat_name.replace("planner_", "")
+                    # stat_name = stat_name.replace("average_l2_error", "ADE")
+                    # stat_name = stat_name.replace("final_l2_error", "FDE")
+                    # stat_name = stat_name.replace("average_heading_error", "AHE")
+                    # stat_name = stat_name.replace("final_heading_error", "FHE")
                     
-                    radar_plot_values_mean_over_all_scenarios.append(values_mean_over_all_scenarios)
-
-                    radar_plot_scenario_statistics[:, statistic_global_idx] = values_per_scenario
+                    # append the stat name and corresponding values to the dictionary
+                    stat_dict[stat_name] = values_per_scenario
+                    radar_plot_scenario_statistics.append(values_per_scenario)
 
                     statistic_global_idx += 1
                     
                     # stop after the "all" statistic, avoid scenario specific statistics
-                    if statistic_global_idx == num_statistics:
+                    if stat_name == "all":
                         break
+                    
+        radar_plot_scenario_statistics = np.array(radar_plot_scenario_statistics).transpose(1,0)
         
         if simulation_type == "Open-Loop":
-            selected_statistics_indices = [self.ol_stats[s]["idx"] for s in self.selected_ol_stats]
+            selected_statistics_indices = self.get_dict_indices(stat_dict, self.selected_ol_stats)
         else:
-            selected_statistics_indices = [self.cl_stats[s]["idx"] for s in self.selected_cl_stats]
+            selected_statistics_indices = self.get_dict_indices(stat_dict, self.selected_cl_stats)
             
         radar_plot_values_scenarios = np.mean(radar_plot_scenario_statistics[:, selected_statistics_indices], axis=1)
         radar_plot_values_selected_statistics = np.mean(radar_plot_scenario_statistics[:, selected_statistics_indices], axis=0)
-        radar_plot_keys_selected_statistics = np.array(radar_plot_metrics)[selected_statistics_indices].tolist()
+        radar_plot_keys_selected_statistics = self.selected_ol_stats if simulation_type == "Open-Loop" else self.selected_cl_stats
         
         # for new plot
         # radar_plot_values_scenarios_2 = np.mean(radar_plot_scenario_statistics[:, :], axis=1) # computes the mean again
-        all_idx = self.ol_stats["all"]["idx"] if simulation_type == "Open-Loop" else self.cl_stats["all"]["idx"]
-        radar_plot_values_scenarios_2 = radar_plot_scenario_statistics[:, all_idx]
+        radar_plot_values_scenarios_2 = radar_plot_scenario_statistics[:, -1]
+        
+        # reorder the scenario_types to avoid overlapping ing the final plot
+        scenario_types_keys.sort(key=len)
+        
+        # scenario_types_keys = list(enumerate(scenario_types_keys))
+        # scenario_types_keys.sort(key=lambda x: len(x[1]))
         
         scenario_types_values = self.compute_metrics_mean_for_each_scenario_type(scenario_types_of_each_scenario,
                                                                                  radar_plot_values_scenarios,
@@ -653,6 +609,9 @@ class MetricSummaryCallback(AbstractMainCallback):
 
         # self._save_to_pdf(matplotlib_plots=matplotlib_plots)
         return matplotlib_plots
+    
+    def get_dict_indices(self, dict, keys):
+        return [list(dict.keys()).index(k) for k in keys]
     
     def compute_metrics_mean_for_each_scenario_type(
         self,
@@ -700,7 +659,7 @@ class MetricSummaryCallback(AbstractMainCallback):
             
             # add legend relative to top-left plot
             labels = (self.model_name, 'Model 2', 'Model 3', 'Model 4', 'Model 5')
-            legend = ax.legend(labels, loc=(0.9, .95), labelspacing=0.1, fontsize='small')
+            legend = ax.legend(labels, loc=(0.8, 0.9), labelspacing=0.1, fontsize='small')
 
             fig.text(0.5, 0.9, f"{simulation_type} Simulation",
                      horizontalalignment='center', color='black', weight='bold',

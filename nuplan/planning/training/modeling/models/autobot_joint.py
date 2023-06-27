@@ -11,7 +11,7 @@ from torch import Tensor
 
 from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
 from nuplan.planning.training.preprocessing.feature_builders.autobots_feature_builder import AutobotsPredNominalTargetBuilder, AutobotsModeProbsNominalTargetBuilder
-from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import EgoTrajectoryTargetBuilder
+from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import EgoTrajectoryTargetBuilder, AgentsTrajectoryTargetBuilder
 
 from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
 from nuplan.planning.training.preprocessing.feature_builders.vector_map_feature_builder import VectorMapFeatureBuilder
@@ -44,6 +44,7 @@ from nuplan.planning.training.preprocessing.target_builders.expert_trajectory_ta
 )
 from nuplan.planning.training.preprocessing.features.generic_agents import GenericAgents
 from nuplan.planning.training.preprocessing.features.trajectory import Trajectory
+from nuplan.planning.training.preprocessing.features.trajectories import Trajectories
 from nuplan.planning.training.preprocessing.features.vector_set_map import VectorSetMap
 from nuplan.planning.training.modeling.models.urban_driver_open_loop_model_utils import (
     LocalSubGraph,
@@ -290,6 +291,7 @@ class AutoBotJoint(TorchModuleWrapper):
             ],
             target_builders=[
                 EgoTrajectoryTargetBuilder(target_params.future_trajectory_sampling),
+                AgentsTrajectoryTargetBuilder(target_params.future_trajectory_sampling),
                 # ExpertTrajectoryTargetBuilder(target_params.expert_trajectory_sampling)
                 AutobotsPredNominalTargetBuilder(),
                 AutobotsModeProbsNominalTargetBuilder(),
@@ -803,9 +805,11 @@ class AutoBotJoint(TorchModuleWrapper):
         
         # Extract features across batch
         agent_features, agent_avails = self.extract_agent_features(ego_agent_features, batch_size)  # [8, 1+3*30, 20, 8], [8, 1+3*30, 20]
-        map_in, map_avails = self.extract_map_features(vector_set_map_data, batch_size)             # [8, 160, 20, 8], [8, 160, 20]
+        num_ego_agents = agent_features.shape[1]
+        map_in, map_avails = self.extract_map_features(vector_set_map_data, batch_size)             # [8, 1+3*30, 160, 20, 8], [8, 1+3*30, 160, 20]
+        map_in, map_avails = map_in.unsqueeze(dim=1).repeat(1, num_ego_agents, 1, 1, 1), map_avails.unsqueeze(dim=1).repeat(1, num_ego_agents, 1, 1)
 
-        roads = torch.cat((map_in, map_avails.unsqueeze(-1)), dim=3) # [8, 160, 20, 9]
+        roads = torch.cat((map_in, map_avails.unsqueeze(-1)), dim=-1) # [8, 1+3*30, 160, 20, 9]
         agents_in_and_ego = torch.cat((agent_features[:,:,:,:3], agent_avails.unsqueeze(-1)), dim=3).transpose(1, 2) # [8, 20, 91, 4] # agent features' feature dimension from 3 to 8 are padded with 0s.
         ego_in = agents_in_and_ego[:, :, 0, :] # [8, 20, 4]
         agents_in = agents_in_and_ego[:, :, 1:, :] # [8, 20, 1+3*30, 4]
@@ -882,8 +886,11 @@ class AutoBotJoint(TorchModuleWrapper):
         mode_probs = self.prob_predictor(mode_params_emb).squeeze(-1).view(self._model_params.c, B, self._model_params._M+1).sum(2).transpose(0, 1)
         mode_probs = F.softmax(mode_probs, dim=1)
 
-        trajs=self.converter.select_all_trajectories(out_dists, mode_probs)
-        traj=self.converter.select_best_trajectory(out_dists, mode_probs)
+        # convert outputs for plotting
+        pred_traj_logits = self.prob_predictor(mode_params_emb).squeeze(-1).view(self._model_params.c, B, self._model_params._M+1).permute(1, 2, 0) # [8, 91, 6]
+        all_pred_agents = out_dists.permute(2, 3, 0, 1, 4) # [8, 91, 6]
+
+        all_pred_agents, pred_traj_logits = self.sort_predictions(all_pred_agents, pred_traj_logits)
 
         # return  [c, T, B, 5], [B, c]
         # return out_dists, mode_probs
@@ -895,7 +902,7 @@ class AutoBotJoint(TorchModuleWrapper):
                 if self.img_num == 0:
                     self.img_folder = f"{str(Path(self._model_params.log_dir).parent)}/images/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
 
-                multimodal_traj_objects = trajs.trajectories[0] # in simulation mode, first and only trajectory of the batch
+                multimodal_traj_objects = Trajectory(all_pred_agents[0,0,:,:,:3]) # in simulation mode, first and only trajectory of the batch
                 image_ndarray = get_raster_from_vector_map_with_agents_multiple_trajectories(
                     vector_set_map_data.to_device('cpu'),
                     ego_agent_features.to_device('cpu'),
@@ -909,7 +916,35 @@ class AutoBotJoint(TorchModuleWrapper):
                 self.img_num += 1
                 print("SAVED IMG NUM: ", self.img_num)
 
+        return {
+            "trajectory": Trajectory(all_pred_agents[:,0,0,:,:3]),   # [8, 16, 3] ego's most likely trajectory
+            "trajectories": TensorTarget(all_pred_agents),        # [8, 50, 6, 16, 3] # ego_trajs = [6][8, 16, 3]
+            "mode_probs": TensorTarget(data=mode_probs),
+            "pred": TensorTarget(data=out_dists),
+            "all_pred_agents": TensorTarget(all_pred_agents),       # [8, 50, 6, 16, 3]
+            "pred_traj_logits": TensorTarget(pred_traj_logits),     # [8, 50, 6]
+        }
+    
 
-        # return  # [c, T, B, M, 5], [B, c]
-        return out_dists, mode_probs
+    def sort_predictions(self, all_pred_agents: torch.Tensor, pred_traj_logits: torch.Tensor) -> torch.Tensor:
+        """select the trajectory with the largest probability for each batch of data
+        Args:
+            all_pred_agents: shape [B, M, c, T, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
+            pred_traj_logits: shape [B, M, c] mode probability predictions P(z|X_{1:T_obs})
+        """
+        
+        # Sort the trajectory probabilities in descending order
+        pred_traj_logits_sorted, pred_traj_index = pred_traj_logits.sort(dim=-1, descending=True)
+
+        # [batch_size, num_agents, 1, 1, 1]
+        pred_traj_index_expanded = pred_traj_index[:, :, :, None, None]
+        # [batch_size, num_agents, num_future_frames, 3]
+        # NOTE: torch.gather can be non-deterministic -- from pytorch 1.9.0 torch.take_along_dim can be used instead
+        all_pred_agents_sorted = torch.gather(
+            all_pred_agents, dim=2,
+            index=pred_traj_index_expanded.expand(([-1, -1, -1] + list(all_pred_agents.shape[-2:])))
+            ).squeeze(2)
+
+        
+        return all_pred_agents_sorted, pred_traj_logits_sorted
 

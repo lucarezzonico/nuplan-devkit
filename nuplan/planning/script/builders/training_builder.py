@@ -111,7 +111,7 @@ def build_trainer(cfg: DictConfig) -> pl.Trainer:
     callbacks = build_callbacks(cfg)
 
     plugins = [
-        pl.plugins.DDPPlugin(find_unused_parameters=False, num_nodes=params.num_nodes),
+        pl.plugins.DDPPlugin(find_unused_parameters=False, num_nodes=params.num_nodes), # find_unused_parameters=True or find_unused_parameters=False
     ]
 
     loggers = [

@@ -51,8 +51,8 @@ class ClosedLoopTrajectoryWeightDecayImitationObjective(AbstractObjective):
         :param targets: ground truth targets from the dataset (according to target_builders in model's init)
         :return: loss scalar tensor
         """
-        predicted_trajectory = cast(Trajectory, predictions["ts_traj"])
-        targets_trajectory = cast(Trajectory, predictions["target"])    # predictions["target"] for closed loop, same for metrics
+        predicted_trajectory = cast(Trajectory, predictions["trajectory"])
+        targets_trajectory = cast(Trajectory, targets["trajectory"])    # predictions["target"] for closed loop, same for metrics
         loss_weights = extract_scenario_type_weight(
             scenarios, self._scenario_type_loss_weighting, device=predicted_trajectory.xy.device
         )
@@ -61,7 +61,7 @@ class ClosedLoopTrajectoryWeightDecayImitationObjective(AbstractObjective):
         planner_output_steps = predicted_trajectory.xy.shape[1]
         decay_weight = torch.ones_like(predicted_trajectory.xy)
         decay_value = torch.exp(-torch.Tensor(range(planner_output_steps)) / (planner_output_steps * self._decay))
-        decay_weight[:, :] = decay_value.unsqueeze(1)
+        decay_weight[:, :] = decay_value.unsqueeze(1) * 0 + 1 # remove decay
 
         broadcast_shape_xy = tuple([-1] + [1 for _ in range(predicted_trajectory.xy.dim() - 1)])
         broadcasted_loss_weights_xy = loss_weights.view(broadcast_shape_xy)

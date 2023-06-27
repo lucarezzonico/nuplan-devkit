@@ -5,3 +5,4 @@ autobotego_kl_loss:
   entropy_weight: 40
   kl_weight: 20
   use_FDEADE_aux_loss: true
+  predict_yaw: false

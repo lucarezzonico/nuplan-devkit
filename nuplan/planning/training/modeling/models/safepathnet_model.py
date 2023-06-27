@@ -1176,8 +1176,8 @@ class SafePathNetModel(TorchModuleWrapper):
     def sort_predictions(self, all_pred_agents: torch.Tensor, pred_traj_logits: torch.Tensor) -> torch.Tensor:
         """select the trajectory with the largest probability for each batch of data
         Args:
-            pred_obs: shape [c, T, B, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
-            mode_probs: shape [B, c] mode probability predictions P(z|X_{1:T_obs})
+            all_pred_agents: shape [B, M, c, T, 5] c trajectories for the ego agents with every point being the params of Bivariate Gaussian distribution.
+            pred_traj_logits: shape [B, M, c] mode probability predictions P(z|X_{1:T_obs})
         """
         
         # Sort the tensor based on the sorted indices
@@ -1194,7 +1194,8 @@ class SafePathNetModel(TorchModuleWrapper):
         # NOTE: torch.gather can be non-deterministic -- from pytorch 1.9.0 torch.take_along_dim can be used instead
         all_pred_agents_sorted = torch.gather(
             all_pred_agents, dim=2,
-            index=pred_traj_index_expanded.expand(([-1, -1, -1] + list(all_pred_agents.shape[-2:])))).squeeze(2)
+            index=pred_traj_index_expanded.expand(([-1, -1, -1] + list(all_pred_agents.shape[-2:])))
+            ).squeeze(2)
 
         
         return all_pred_agents_sorted

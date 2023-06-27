@@ -14,7 +14,7 @@ class AutobotsNllLoss(AbstractTrainingMetric):
     
     """
 
-    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss):
+    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss, predict_yaw):
         """
         Initializes the class
         :param name: name of the objective
@@ -24,6 +24,7 @@ class AutobotsNllLoss(AbstractTrainingMetric):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self.predict_yaw = predict_yaw
 
     def name(self) -> str:
         """
@@ -50,10 +51,11 @@ class AutobotsNllLoss(AbstractTrainingMetric):
         targets_xy = cast(Trajectory, targets["trajectory"]).data
         
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
-                                                                                   entropy_weight=self.entropy_weight,
-                                                                                   kl_weight=self.kl_weight,
-                                                                                   use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy, mode_probs,
+                                                                            entropy_weight=self.entropy_weight,
+                                                                            kl_weight=self.kl_weight,
+                                                                            use_FDEADE_aux_loss=self.use_FDEADE_aux_loss,
+                                                                            predict_yaw=self.predict_yaw)
 
         return nll_loss
 
@@ -63,7 +65,7 @@ class AutobotsKlLoss(AbstractTrainingMetric):
     
     """
 
-    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss):
+    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss, predict_yaw):
         """
         Initializes the class
         :param name: name of the objective
@@ -73,6 +75,7 @@ class AutobotsKlLoss(AbstractTrainingMetric):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self.predict_yaw = predict_yaw
 
     def name(self) -> str:
         """
@@ -99,10 +102,11 @@ class AutobotsKlLoss(AbstractTrainingMetric):
         targets_xy = cast(Trajectory, targets["trajectory"]).data
         
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
-                                                                                   entropy_weight=self.entropy_weight,
-                                                                                   kl_weight=self.kl_weight,
-                                                                                   use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
+        nnll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy, mode_probs,
+                                                                            entropy_weight=self.entropy_weight,
+                                                                            kl_weight=self.kl_weight,
+                                                                            use_FDEADE_aux_loss=self.use_FDEADE_aux_loss,
+                                                                            predict_yaw=self.predict_yaw)
 
         return kl_loss
 
@@ -111,7 +115,7 @@ class AutobotsPostEntropy(AbstractTrainingMetric):
     
     """
 
-    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss):
+    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss, predict_yaw):
         """
         Initializes the class
         :param name: name of the objective
@@ -121,6 +125,7 @@ class AutobotsPostEntropy(AbstractTrainingMetric):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self.predict_yaw = predict_yaw
 
     def name(self) -> str:
         """
@@ -147,10 +152,11 @@ class AutobotsPostEntropy(AbstractTrainingMetric):
         targets_xy = cast(Trajectory, targets["trajectory"]).data
         
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
-                                                                                   entropy_weight=self.entropy_weight,
-                                                                                   kl_weight=self.kl_weight,
-                                                                                   use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy, mode_probs,
+                                                                            entropy_weight=self.entropy_weight,
+                                                                            kl_weight=self.kl_weight,
+                                                                            use_FDEADE_aux_loss=self.use_FDEADE_aux_loss,
+                                                                            predict_yaw=self.predict_yaw)
 
         return post_entropy
 
@@ -159,7 +165,7 @@ class AutobotsADEFDELoss(AbstractTrainingMetric):
     
     """
 
-    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss):
+    def __init__(self, entropy_weight, kl_weight, use_FDEADE_aux_loss, predict_yaw):
         """
         Initializes the class
         :param name: name of the objective
@@ -169,6 +175,8 @@ class AutobotsADEFDELoss(AbstractTrainingMetric):
         self.entropy_weight=entropy_weight
         self.kl_weight=kl_weight
         self.use_FDEADE_aux_loss=use_FDEADE_aux_loss
+        self.predict_yaw=predict_yaw
+        self.predict_yaw = predict_yaw
 
     def name(self) -> str:
         """
@@ -195,10 +203,11 @@ class AutobotsADEFDELoss(AbstractTrainingMetric):
         targets_xy = cast(Trajectory, targets["trajectory"]).data
         
 
-        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy[:, :, :2], mode_probs,
-                                                                                   entropy_weight=self.entropy_weight,
-                                                                                   kl_weight=self.kl_weight,
-                                                                                   use_FDEADE_aux_loss=self.use_FDEADE_aux_loss)
+        nll_loss, kl_loss, post_entropy, adefde_loss = nll_loss_multimodes(pred_obs, targets_xy, mode_probs,
+                                                                            entropy_weight=self.entropy_weight,
+                                                                            kl_weight=self.kl_weight,
+                                                                            use_FDEADE_aux_loss=self.use_FDEADE_aux_loss,
+                                                                            predict_yaw=self.predict_yaw)
 
         return adefde_loss
 

@@ -1,17 +1,17 @@
-tasks: [simulate, open_nuboard] # [train, simulate, open_nuboard]
+tasks: [train] # [train, simulate, open_nuboard]
 model_name: urban_driver_open_loop_multimodal # [vector, autobotego]
 
 # adapt training params
 model_fct: train # [train, test, cache]
 dataset: nuplan # [nuplan, nuplan_challenge, nuplan_mini]
-nb_scenarios: 500
-nb_epochs: 1
+nb_scenarios: 8000
+nb_epochs: 4
 batch_size: 8
 lightning_accelerator: ddp_spawn
 nb_workers: 8
 
 predict_yaw: False
-draw_visualizations: True # inside the model (for every scenario)
+draw_visualizations: False # inside the model (for every scenario)
 
 # adapt simulation params
 planner: ml_planner  # [simple_planner, ml_planner]
@@ -35,39 +35,13 @@ scenario_types: [
   stationary_in_traffic
 ]
 
-# for open-loop simulation metrics summary
-selected_ol_stats: [planner_expert_ADE_horizon_3,
-                    planner_expert_FDE_horizon_3,
-                    planner_expert_FHE_horizon_3,
-                    planner_expert_AHE_horizon_3,
-                    planner_expert_ADE_horizon_8,
-                    planner_expert_FDE_horizon_8,
-                    planner_expert_FHE_horizon_8,
-                    planner_expert_AHE_horizon_8]
-# for closed-loop simulation metrics summary
-selected_cl_stats: [ego_is_comfortable,
-                    drivable_area_compliance,
-                    corners_in_drivable_area,
-                    abs_ego_lon_jerk_within_bounds,
-                    abs_ego_lon_acceleration_within_bounds,
-                    time_to_collision_within_bound,
-                    speed_limit_compliance,
-                    abs_ego_jerk_within_bounds,
-                    ego_expert_progress_along_route_ratio, # unit: ratio # normalize
-                    no_ego_at_fault_collisions,
-                    abs_ego_lat_acceleration_within_bounds,
-                    ego_is_making_progress,
-                    abs_ego_yaw_acceleration_within_bounds,
-                    ego_lane_change_fail_rate_below_threshold,
-                    abs_ego_yaw_rate_within_bounds,]
-
 training_options:
   optimizer: adamw
   optimizer.lr: 2e-4
   # +optimizer.eps: 1e-4
   lr_scheduler: multistep_lr # [multistep_lr]
-  lr_scheduler.milestones: [20, 40]
-  lr_scheduler.gamma: 0.1
+  lr_scheduler.milestones: [10, 20, 30]
+  lr_scheduler.gamma: 0.2
   callbacks.visualization_callback.all_modes: True
   model.model_params.draw_visualizations: ${draw_visualizations}
   model.model_params.log_dir: ${log_dir}
@@ -77,8 +51,6 @@ simulation_options:
   scenario_filter.scenario_types: ${scenario_types}
   model.model_params.draw_visualizations: ${draw_visualizations}
   model.model_params.log_dir: ${log_dir}
-  main_callback.metric_summary_callback.selected_ol_stats: ${selected_ol_stats}
-  main_callback.metric_summary_callback.selected_cl_stats: ${selected_cl_stats}
   # scenario_filter.log_names: [2021.08.24.17.34.27_veh-45_01118_01346]
   # selected_simulation_metrics: [ego_acceleration_statistics, ego_jerk_statistics]
 
